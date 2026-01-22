@@ -1,0 +1,32 @@
+{
+  "name": "mcp-tools",
+  "version": "1.0.0",
+  "description": "MCP server with modular TypeScript tools",
+  "type": "module",
+  "bin": {
+    "genimage": "./dist/tools/genimage/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/mcp-server.ts",
+    "start": "node dist/mcp-server.js",
+    "genimage": "tsx tools/genimage/cli.ts"
+  },
+  "keywords": [
+    "mcp",
+    "image-generation",
+    "openrouter"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "dotenv": "^17.2.3",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.10",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
