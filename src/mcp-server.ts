@@ -1,21 +1,11 @@
 #!/usr/bin/env node
-import { config } from "dotenv";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-
-// Load .env from the project root directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-config({ path: join(__dirname, "..", ".env") });
-
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-
-// Import all tools
+import * as editimage from "../tools/editimage/editimage.js";
 import * as genimage from "../tools/genimage/genimage.js";
 
 // Tool registry - add new tools here
@@ -23,6 +13,10 @@ const tools = [
   {
     definition: genimage.mcpTool,
     handler: genimage.mcpHandler,
+  },
+  {
+    definition: editimage.mcpTool,
+    handler: editimage.mcpHandler,
   },
 ];
 
@@ -35,7 +29,7 @@ const server = new Server(
     capabilities: {
       tools: {},
     },
-  }
+  },
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {

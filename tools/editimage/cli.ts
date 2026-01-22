@@ -8,17 +8,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 config({ path: join(__dirname, "..", "..", ".env") });
 
-import { generateImage, type AspectRatio, type ImageSize } from "./genimage.js";
+import { editImage } from "./editimage.js";
+import type { AspectRatio, ImageSize } from "../common/schemas.js";
 
 const HELP_TEXT = `
-Image generation script using OpenRouter
+Image editing script using OpenRouter
 
 Usage:
-  genimage "your prompt here" output.png [options]
+  editimage "your prompt here" input.png output.png [options]
 
 Arguments:
-  prompt                     Text prompt for image generation
-  output                     Output file path (e.g., my_image.png)
+  prompt                     Text prompt describing desired edits
+  input                      Input image file path
+  output                     Output file path (e.g., edited_image.png)
 
 Options:
   -a, --aspect-ratio RATIO   Aspect ratio (default: 1:1)
@@ -27,14 +29,13 @@ Options:
                              Options: 1K, 2K, 4K
   --pro                     Use Pro model (google/gemini-3-pro-image-preview)
                              Default: google/gemini-2.5-flash-image
-  -v, --verbose             Show full API response (including raw JSON)
+  -v, --verbose             Show full details (including base64 output)
   -h, --help                Show this help message
 
 Examples:
-  genimage "a cat on a skateboard" cat.png
-  genimage "sunset" sunset.png -a 16:9 -s 2K
-  genimage "landscape" landscape.png --pro
-  genimage "test" test.png -v
+  editimage "make it sepia toned" photo.jpg edited.png
+  editimage "add a blue filter" image.png output.png -a 16:9 -s 2K
+  editimage "make it darker" photo.jpg dark.png --pro
 `;
 
 function printHelp() {
@@ -49,21 +50,22 @@ async function main() {
     process.exit(args.length > 0 ? 0 : 1);
   }
 
-  if (args.length < 2) {
-    console.error("Error: Both prompt and output path are required");
+  if (args.length < 3) {
+    console.error("Error: Prompt, input path, and output path are required");
     printHelp();
     process.exit(1);
   }
 
   const prompt = args[0];
-  const outputPath = args[1];
+  const inputImage = args[1];
+  const outputPath = args[2];
 
   let aspectRatio: AspectRatio | undefined;
   let imageSize: ImageSize | undefined;
   let usePro = false;
   let verbose = false;
 
-  for (let i = 2; i < args.length; i++) {
+  for (let i = 3; i < args.length; i++) {
     const arg = args[i];
 
     if (arg === "-a" || arg === "--aspect-ratio") {
@@ -82,16 +84,15 @@ async function main() {
   }
 
   try {
-    const result = await generateImage({
+    await editImage({
       prompt,
+      inputImage,
       outputPath,
       aspectRatio,
       imageSize,
       usePro,
       verbose,
     });
-
-    console.log(`✓ Saved to: ${result.outputPath}`);
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
