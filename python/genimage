@@ -1,0 +1,9 @@
+#!/bin/bash
+# Wrapper script to call generate_image.py from anywhere
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+VENV_PYTHON="$SCRIPT_DIR/venv/bin/python"
+SCRIPT="$SCRIPT_DIR/generate_image.py"
+
+# Activate virtual environment and run the script
+"$VENV_PYTHON" "$SCRIPT" "$@"

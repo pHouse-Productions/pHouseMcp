@@ -1,0 +1,12 @@
+# Virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Test files
+*.png
+debug_response.txt
+TEST_OUT.txt
