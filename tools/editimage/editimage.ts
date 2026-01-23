@@ -154,7 +154,7 @@ export async function mcpHandler(args: any) {
       content: [
         {
           type: "text",
-          text: "This should not be reached",
+          text: "Image edited successfully and saved to " + parsed.outputPath,
         },
       ],
     };
