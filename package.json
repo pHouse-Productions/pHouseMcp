@@ -1,5 +1,5 @@
 {
-  "name": "mcp-tools",
+  "name": "phousemcp",
   "version": "1.0.0",
   "description": "MCP server with modular TypeScript tools",
   "type": "module",
