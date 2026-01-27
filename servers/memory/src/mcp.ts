@@ -11,8 +11,10 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, "../../..");
-const NOTES_DIR = path.join(PROJECT_ROOT, "notes");
-const LEADS_TRACKER = path.join(PROJECT_ROOT, "leads/tracker.json");
+
+// Configurable via env vars, defaults to pHouseMcp/notes and pHouseMcp/leads
+const NOTES_DIR = process.env.PHOUSE_NOTES_DIR || path.join(PROJECT_ROOT, "notes");
+const LEADS_TRACKER = process.env.PHOUSE_LEADS_FILE || path.join(PROJECT_ROOT, "leads/tracker.json");
 
 // Ensure notes directory exists
 if (!fs.existsSync(NOTES_DIR)) {
