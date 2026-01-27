@@ -8,8 +8,13 @@ import { OpenRouter } from "@openrouter/sdk/sdk/index.js";
 import { readFile } from "fs/promises";
 import { mkdir, writeFile } from "fs/promises";
 import { dirname } from "path";
+import * as path from "path";
+import { fileURLToPath } from "url";
 import { z } from "zod";
-import "dotenv/config";
+import { config } from "dotenv";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.resolve(__dirname, "../../../.env") });
 
 // Model configuration
 const MODEL_FLASH = "google/gemini-2.5-flash-image";

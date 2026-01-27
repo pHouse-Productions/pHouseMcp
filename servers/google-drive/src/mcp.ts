@@ -7,7 +7,11 @@ import {
 import { getDriveClient } from "@phouse/google-auth";
 import * as fs from "fs";
 import * as path from "path";
-import "dotenv/config";
+import { fileURLToPath } from "url";
+import { config } from "dotenv";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.resolve(__dirname, "../../../.env") });
 
 const drive = getDriveClient();
 

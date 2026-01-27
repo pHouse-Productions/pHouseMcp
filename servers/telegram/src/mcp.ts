@@ -8,7 +8,11 @@ import { Telegraf } from "telegraf";
 import { getRecentMessages, saveMessage } from "./history.js";
 import * as path from "path";
 import * as fs from "fs";
-import "dotenv/config";
+import { fileURLToPath } from "url";
+import { config } from "dotenv";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.resolve(__dirname, "../../../.env") });
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
 if (!botToken) {
