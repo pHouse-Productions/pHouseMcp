@@ -11,13 +11,18 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// pHouseClawd is the main project root
-const PHOUSE_CLAWD_ROOT = "/home/ubuntu/pHouseClawd";
+// Project root - configurable via PHOUSE_PROJECT_ROOT env var
+// Falls back to pHouseClawd relative to pHouseMcp location (assumes sibling directories)
+const PHOUSE_CLAWD_ROOT = process.env.PHOUSE_PROJECT_ROOT ||
+  path.resolve(__dirname, "../../../../pHouseClawd");
 
 // Memory directories
 const LONG_TERM_DIR = path.join(PHOUSE_CLAWD_ROOT, "memory/long-term");
 const SHORT_TERM_DIR = path.join(PHOUSE_CLAWD_ROOT, "memory/short-term");
 const SHORT_TERM_FILE = path.join(SHORT_TERM_DIR, "buffer.txt");
+
+// Log the resolved path on startup for debugging
+console.error(`[MCP] Memory root: ${PHOUSE_CLAWD_ROOT}`);
 
 // Size threshold for roll-up recommendation (10KB default)
 const SIZE_THRESHOLD = 10 * 1024;
