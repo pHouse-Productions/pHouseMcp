@@ -10,159 +10,136 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.resolve(__dirname, "../../..");
 
-// Configurable via env vars, defaults to pHouseMcp/notes and pHouseMcp/leads
-const NOTES_DIR = process.env.PHOUSE_NOTES_DIR || path.join(PROJECT_ROOT, "notes");
-const LEADS_TRACKER = process.env.PHOUSE_LEADS_FILE || path.join(PROJECT_ROOT, "leads/tracker.json");
+// pHouseClawd is the main project root
+const PHOUSE_CLAWD_ROOT = "/home/ubuntu/pHouseClawd";
 
-// Ensure notes directory exists
-if (!fs.existsSync(NOTES_DIR)) {
-  fs.mkdirSync(NOTES_DIR, { recursive: true });
+// Memory directories
+const LONG_TERM_DIR = path.join(PHOUSE_CLAWD_ROOT, "memory/long-term");
+const SHORT_TERM_DIR = path.join(PHOUSE_CLAWD_ROOT, "memory/short-term");
+const SHORT_TERM_FILE = path.join(SHORT_TERM_DIR, "buffer.txt");
+
+// Size threshold for roll-up recommendation (10KB default)
+const SIZE_THRESHOLD = 10 * 1024;
+
+// Ensure directories exist
+if (!fs.existsSync(LONG_TERM_DIR)) {
+  fs.mkdirSync(LONG_TERM_DIR, { recursive: true });
+}
+if (!fs.existsSync(SHORT_TERM_DIR)) {
+  fs.mkdirSync(SHORT_TERM_DIR, { recursive: true });
 }
 
-// Note categories with their file mappings
-const CATEGORIES: Record<string, string> = {
-  journal: "journal.md",
-  projects: "projects.md",
-  people: "people.md",
-  scratch: "scratch.md",
-};
-
-function getNotePath(category: string): string {
-  const filename = CATEGORIES[category] || `${category}.md`;
-  return path.join(NOTES_DIR, filename);
+// Long-term memory file operations
+function listLongTermFiles(): string[] {
+  if (!fs.existsSync(LONG_TERM_DIR)) return [];
+  return fs.readdirSync(LONG_TERM_DIR).filter(f => !f.startsWith("."));
 }
 
-function getTorontoTimestamp(): string {
-  return new Date().toLocaleString("en-US", {
-    timeZone: "America/Toronto",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
-function getTorontoDate(): string {
-  return new Date().toLocaleDateString("en-CA", {
-    timeZone: "America/Toronto",
-  });
-}
-
-function readNote(category: string): string {
-  const notePath = getNotePath(category);
-  if (fs.existsSync(notePath)) {
-    return fs.readFileSync(notePath, "utf-8");
+function readLongTermFile(filename: string): string {
+  const filePath = path.join(LONG_TERM_DIR, filename);
+  if (fs.existsSync(filePath)) {
+    return fs.readFileSync(filePath, "utf-8");
   }
   return "";
 }
 
-function appendToNote(category: string, content: string): void {
-  const notePath = getNotePath(category);
+function writeLongTermFile(filename: string, content: string): void {
+  const filePath = path.join(LONG_TERM_DIR, filename);
+  fs.writeFileSync(filePath, content);
+}
+
+function appendLongTermFile(filename: string, content: string): void {
+  const filePath = path.join(LONG_TERM_DIR, filename);
   let existing = "";
-  if (fs.existsSync(notePath)) {
-    existing = fs.readFileSync(notePath, "utf-8");
+  if (fs.existsSync(filePath)) {
+    existing = fs.readFileSync(filePath, "utf-8");
   }
-  fs.writeFileSync(notePath, existing + content);
+  const separator = existing.endsWith("\n") || !existing ? "" : "\n";
+  fs.writeFileSync(filePath, existing + separator + content);
 }
 
-function writeNote(category: string, content: string): void {
-  const notePath = getNotePath(category);
-  fs.writeFileSync(notePath, content);
+function deleteLongTermFile(filename: string): boolean {
+  const filePath = path.join(LONG_TERM_DIR, filename);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    return true;
+  }
+  return false;
 }
 
-// Search across all notes
-function searchNotes(query: string): Array<{ category: string; matches: string[] }> {
-  const results: Array<{ category: string; matches: string[] }> = [];
+// Short-term memory operations
+function readShortTermMemory(): string {
+  if (fs.existsSync(SHORT_TERM_FILE)) {
+    return fs.readFileSync(SHORT_TERM_FILE, "utf-8");
+  }
+  return "";
+}
+
+function getShortTermSize(): number {
+  if (fs.existsSync(SHORT_TERM_FILE)) {
+    return fs.statSync(SHORT_TERM_FILE).size;
+  }
+  return 0;
+}
+
+function clearShortTermMemory(): void {
+  if (fs.existsSync(SHORT_TERM_FILE)) {
+    fs.writeFileSync(SHORT_TERM_FILE, "");
+  }
+}
+
+// Search across all long-term memory files
+function searchMemory(query: string): Array<{ file: string; matches: string[] }> {
+  const results: Array<{ file: string; matches: string[] }> = [];
   const queryLower = query.toLowerCase();
 
-  for (const [category, filename] of Object.entries(CATEGORIES)) {
-    const notePath = path.join(NOTES_DIR, filename);
-    if (fs.existsSync(notePath)) {
-      const content = fs.readFileSync(notePath, "utf-8");
-      const lines = content.split("\n");
-      const matches: string[] = [];
-
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].toLowerCase().includes(queryLower)) {
-          // Include context (line before and after)
-          const start = Math.max(0, i - 1);
-          const end = Math.min(lines.length - 1, i + 1);
-          const context = lines.slice(start, end + 1).join("\n");
-          matches.push(`Line ${i + 1}:\n${context}`);
-        }
-      }
-
-      if (matches.length > 0) {
-        results.push({ category, matches });
-      }
-    }
-  }
-
-  // Also search leads tracker
-  if (fs.existsSync(LEADS_TRACKER)) {
-    const tracker = JSON.parse(fs.readFileSync(LEADS_TRACKER, "utf-8"));
+  // Search long-term files
+  const files = listLongTermFiles();
+  for (const filename of files) {
+    const content = readLongTermFile(filename);
+    const lines = content.split("\n");
     const matches: string[] = [];
 
-    for (const lead of tracker.evaluated || []) {
-      const leadStr = JSON.stringify(lead).toLowerCase();
-      if (leadStr.includes(queryLower)) {
-        matches.push(`${lead.name} (${lead.status}): ${lead.reason?.substring(0, 100)}...`);
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].toLowerCase().includes(queryLower)) {
+        const start = Math.max(0, i - 1);
+        const end = Math.min(lines.length - 1, i + 1);
+        const context = lines.slice(start, end + 1).join("\n");
+        matches.push(`Line ${i + 1}:\n${context}`);
       }
     }
 
     if (matches.length > 0) {
-      results.push({ category: "leads", matches });
+      results.push({ file: filename, matches });
     }
   }
 
   return results;
 }
 
-// Load leads tracker
-function loadLeads(): any {
-  if (fs.existsSync(LEADS_TRACKER)) {
-    return JSON.parse(fs.readFileSync(LEADS_TRACKER, "utf-8"));
-  }
-  return { evaluated: [] };
-}
-
-// Save leads tracker
-function saveLeads(data: any): void {
-  const dir = path.dirname(LEADS_TRACKER);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  fs.writeFileSync(LEADS_TRACKER, JSON.stringify(data, null, 2));
-}
-
 const server = new Server(
-  { name: "memory", version: "1.0.0" },
+  { name: "memory", version: "2.0.0" },
   { capabilities: { tools: {} } }
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
+    // === Long-term Memory Tools ===
     {
       name: "recall",
       description:
-        "Recall memories from a specific category or search across all notes. Use this at the START of sessions to get context. Categories: journal (activity log), projects (active work), people (contacts), scratch (working memory), leads (business tracker).",
+        "Read from long-term memory. If no file specified, lists all memory files with previews. Specify a file to read its full content. Use query to search across all files.",
       inputSchema: {
         type: "object" as const,
         properties: {
-          category: {
+          file: {
             type: "string",
-            description:
-              "Category to recall from: journal, projects, people, scratch, leads. If omitted, returns a summary of all categories.",
-            enum: ["journal", "projects", "people", "scratch", "leads"],
+            description: "Filename to read (e.g., 'journal.md', 'projects.md'). If omitted, lists all files.",
           },
           query: {
             type: "string",
-            description:
-              "Optional search query to filter results. Searches content within the category (or all categories if none specified).",
+            description: "Search query to find content across all files.",
           },
         },
         required: [],
@@ -171,114 +148,90 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "remember",
       description:
-        "Save information to memory. Use this to persist context between sessions. For journal entries, content is auto-timestamped and appended. For other categories, you can append or replace.",
+        "Save to long-term memory. Creates or updates files in the memory/long-term directory. Use mode='append' to add content, 'replace' to overwrite.",
       inputSchema: {
         type: "object" as const,
         properties: {
-          category: {
+          file: {
             type: "string",
-            description: "Category to save to: journal, projects, people, scratch",
-            enum: ["journal", "projects", "people", "scratch"],
+            description: "Filename to write to (e.g., 'journal.md', 'projects.md'). Will be created if it doesn't exist.",
           },
           content: {
             type: "string",
-            description: "The content to remember. For journal, this should be a bullet point or short note. For projects/people, can be structured markdown.",
+            description: "Content to save.",
           },
           mode: {
             type: "string",
-            description: "How to save: 'append' adds to existing content (default), 'replace' overwrites the entire note. Use replace carefully!",
+            description: "'append' to add to end of file (default), 'replace' to overwrite entire file.",
             enum: ["append", "replace"],
           },
         },
-        required: ["category", "content"],
+        required: ["file", "content"],
       },
     },
     {
-      name: "log_activity",
+      name: "forget",
+      description: "Delete a file from long-term memory. Use with caution!",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          file: {
+            type: "string",
+            description: "Filename to delete.",
+          },
+        },
+        required: ["file"],
+      },
+    },
+
+    // === Short-term Memory Tools ===
+    {
+      name: "read_short_term",
       description:
-        "Quick way to log an activity to the journal. Automatically adds timestamp and formats as bullet point. Use this throughout sessions to track what you've done.",
+        "Read the short-term memory buffer. This contains recent conversation logs that haven't been rolled up into long-term memory yet.",
       inputSchema: {
         type: "object" as const,
-        properties: {
-          activity: {
-            type: "string",
-            description: "What happened or was accomplished. Keep it concise.",
-          },
-          section: {
-            type: "string",
-            description: "Optional section header (e.g., 'Email Security' or 'Lead Finding'). If the current date already has this section, appends to it. Otherwise creates new section.",
-          },
-        },
-        required: ["activity"],
+        properties: {},
+        required: [],
       },
     },
     {
-      name: "update_lead",
+      name: "short_term_status",
       description:
-        "Update a lead in the tracker. Can update status, add notes, or modify any field.",
+        "Get the status of short-term memory (size in bytes, whether roll-up is recommended).",
       inputSchema: {
         type: "object" as const,
-        properties: {
-          slug: {
-            type: "string",
-            description: "The lead slug (e.g., 'irenes-celebrity-cakes')",
-          },
-          updates: {
-            type: "object",
-            description: "Fields to update. Can include: status, notes, website, repo, preview, contact, etc.",
-          },
-        },
-        required: ["slug", "updates"],
+        properties: {},
+        required: [],
       },
     },
     {
-      name: "add_lead",
-      description: "Add a new lead to the tracker.",
+      name: "rollup",
+      description:
+        "Trigger a memory roll-up. Reads short-term memory and returns it for processing. After you've extracted and saved important memories to long-term, call with clear=true to reset the buffer.",
       inputSchema: {
         type: "object" as const,
         properties: {
-          name: {
-            type: "string",
-            description: "Business name",
-          },
-          slug: {
-            type: "string",
-            description: "URL-friendly slug (lowercase, hyphens)",
-          },
-          industry: {
-            type: "string",
-            description: "Business industry/type",
-          },
-          reason: {
-            type: "string",
-            description: "Why they need a new website",
-          },
-          website: {
-            type: "string",
-            description: "Current website URL (null if none)",
-          },
-          contact: {
-            type: "object",
-            description: "Contact info: phone, email, address, hours",
-          },
-          notes: {
-            type: "string",
-            description: "Additional notes about the business",
+          clear: {
+            type: "boolean",
+            description: "Set to true to clear short-term memory after reading. Only do this AFTER you've saved important memories to long-term.",
           },
         },
-        required: ["name", "slug", "reason"],
+        required: [],
       },
     },
+
+    // === Search ===
     {
       name: "search_memory",
       description:
-        "Search across all memory (notes and leads) for a query. Returns matching lines with context.",
+        "Search across all long-term memory files for a query. Returns matching lines with context.",
       inputSchema: {
         type: "object" as const,
         properties: {
           query: {
             type: "string",
-            description: "Search query",
+            description: "Search query.",
           },
         },
         required: ["query"],
@@ -290,243 +243,154 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
-  if (name === "recall") {
-    const { category, query } = args as { category?: string; query?: string };
+  // === Long-term Memory ===
 
-    // If query provided, search
+  if (name === "recall") {
+    const { file, query } = args as { file?: string; query?: string };
+
+    // Search mode
     if (query) {
-      const results = searchNotes(query);
+      const results = searchMemory(query);
       if (results.length === 0) {
         return {
           content: [{ type: "text", text: `No results found for "${query}"` }],
         };
       }
-
       const formatted = results
-        .map((r) => `### ${r.category}\n${r.matches.join("\n\n")}`)
+        .map((r) => `### ${r.file}\n${r.matches.join("\n\n")}`)
         .join("\n\n");
-
       return {
         content: [{ type: "text", text: `Search results for "${query}":\n\n${formatted}` }],
       };
     }
 
-    // If category specified, return that note
-    if (category) {
-      if (category === "leads") {
-        const leads = loadLeads();
-        const summary = (leads.evaluated || [])
-          .map((l: any) => `- ${l.name} [${l.status}]: ${l.reason?.substring(0, 80)}...`)
-          .join("\n");
-        return {
-          content: [{ type: "text", text: `Leads Tracker:\n\n${summary}` }],
-        };
-      }
-
-      const content = readNote(category);
+    // Read specific file
+    if (file) {
+      const content = readLongTermFile(file);
       if (!content) {
         return {
-          content: [{ type: "text", text: `No content in ${category}` }],
+          content: [{ type: "text", text: `File not found or empty: ${file}` }],
         };
       }
       return {
-        content: [{ type: "text", text: `## ${category}\n\n${content}` }],
+        content: [{ type: "text", text: `## ${file}\n\n${content}` }],
       };
     }
 
-    // No category - return summary of all
+    // List all files
+    const files = listLongTermFiles();
     const summaries: string[] = [];
-    for (const [cat, filename] of Object.entries(CATEGORIES)) {
-      const content = readNote(cat);
-      if (content) {
-        const lines = content.split("\n").filter((l) => l.trim());
-        const preview = lines.slice(0, 5).join("\n");
-        summaries.push(`### ${cat} (${lines.length} lines)\n${preview}\n...`);
-      }
+
+    for (const filename of files) {
+      const content = readLongTermFile(filename);
+      const lines = content.split("\n").filter((l) => l.trim());
+      const preview = lines.slice(0, 3).join("\n");
+      summaries.push(`### ${filename} (${lines.length} lines)\n${preview}${lines.length > 3 ? "\n..." : ""}`);
     }
 
-    // Add leads summary
-    const leads = loadLeads();
-    const leadCount = (leads.evaluated || []).length;
-    summaries.push(`### leads (${leadCount} businesses tracked)`);
+    if (summaries.length === 0) {
+      return {
+        content: [{ type: "text", text: "No memory files found." }],
+      };
+    }
 
     return {
-      content: [{ type: "text", text: `Memory Summary:\n\n${summaries.join("\n\n")}` }],
+      content: [{ type: "text", text: `Long-term Memory:\n\n${summaries.join("\n\n")}` }],
     };
   }
 
   if (name === "remember") {
-    const { category, content, mode = "append" } = args as {
-      category: string;
+    const { file, content, mode = "append" } = args as {
+      file: string;
       content: string;
       mode?: string;
     };
 
     if (mode === "replace") {
-      writeNote(category, content);
+      writeLongTermFile(file, content);
       return {
-        content: [{ type: "text", text: `Replaced content in ${category}` }],
+        content: [{ type: "text", text: `Replaced content in ${file}` }],
       };
     }
 
-    // Append mode
-    const existing = readNote(category);
-    const separator = existing.endsWith("\n") ? "" : "\n";
-    appendToNote(category, separator + content);
-
+    appendLongTermFile(file, content);
     return {
-      content: [{ type: "text", text: `Appended to ${category}` }],
+      content: [{ type: "text", text: `Appended to ${file}` }],
     };
   }
 
-  if (name === "log_activity") {
-    const { activity, section } = args as { activity: string; section?: string };
-    const today = getTorontoDate();
-    const timestamp = getTorontoTimestamp();
+  if (name === "forget") {
+    const { file } = args as { file: string };
 
-    let journal = readNote("journal");
-
-    // Check if today's date header exists
-    const dateHeader = `## ${today}`;
-    const hasToday = journal.includes(dateHeader);
-
-    if (!hasToday) {
-      // Add new date section at the top (after the main header if present)
-      const lines = journal.split("\n");
-      let insertIndex = 0;
-
-      // Find where to insert (after # Journal header)
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith("# ")) {
-          insertIndex = i + 1;
-          break;
-        }
-      }
-
-      const newSection = section
-        ? `${dateHeader}\n### ${section}\n- ${activity}\n`
-        : `${dateHeader}\n- ${activity}\n`;
-
-      lines.splice(insertIndex, 0, "", newSection);
-      writeNote("journal", lines.join("\n"));
-    } else {
-      // Today exists, find where to add
-      const lines = journal.split("\n");
-      const todayIndex = lines.findIndex((l) => l.includes(dateHeader));
-
-      if (section) {
-        const sectionHeader = `### ${section}`;
-        const sectionIndex = lines.findIndex(
-          (l, i) => i > todayIndex && l.includes(sectionHeader)
-        );
-
-        if (sectionIndex !== -1) {
-          // Section exists, find end of section (next ### or ##)
-          let insertAt = sectionIndex + 1;
-          for (let i = sectionIndex + 1; i < lines.length; i++) {
-            if (lines[i].startsWith("##")) {
-              insertAt = i;
-              break;
-            }
-            insertAt = i + 1;
-          }
-          lines.splice(insertAt, 0, `- ${activity}`);
-        } else {
-          // Section doesn't exist, add it after date header
-          lines.splice(todayIndex + 1, 0, `### ${section}`, `- ${activity}`);
-        }
-      } else {
-        // No section, just add after date header
-        lines.splice(todayIndex + 1, 0, `- ${activity}`);
-      }
-
-      writeNote("journal", lines.join("\n"));
-    }
-
-    return {
-      content: [{ type: "text", text: `Logged: ${activity}` }],
-    };
-  }
-
-  if (name === "update_lead") {
-    const { slug, updates } = args as { slug: string; updates: Record<string, any> };
-
-    const leads = loadLeads();
-    const leadIndex = (leads.evaluated || []).findIndex(
-      (l: any) => l.slug === slug
-    );
-
-    if (leadIndex === -1) {
+    if (deleteLongTermFile(file)) {
       return {
-        content: [{ type: "text", text: `Lead not found: ${slug}` }],
-        isError: true,
+        content: [{ type: "text", text: `Deleted ${file}` }],
+      };
+    }
+    return {
+      content: [{ type: "text", text: `File not found: ${file}` }],
+      isError: true,
+    };
+  }
+
+  // === Short-term Memory ===
+
+  if (name === "read_short_term") {
+    const content = readShortTermMemory();
+    if (!content) {
+      return {
+        content: [{ type: "text", text: "Short-term memory is empty." }],
+      };
+    }
+    return {
+      content: [{ type: "text", text: `Short-term Memory:\n\n${content}` }],
+    };
+  }
+
+  if (name === "short_term_status") {
+    const size = getShortTermSize();
+    const needsRollup = size >= SIZE_THRESHOLD;
+    return {
+      content: [{
+        type: "text",
+        text: `Short-term Memory Status:\n- Size: ${size} bytes (${(size / 1024).toFixed(2)} KB)\n- Threshold: ${SIZE_THRESHOLD} bytes (${(SIZE_THRESHOLD / 1024).toFixed(2)} KB)\n- Roll-up recommended: ${needsRollup ? "YES" : "No"}`,
+      }],
+    };
+  }
+
+  if (name === "rollup") {
+    const { clear } = args as { clear?: boolean };
+
+    if (clear) {
+      clearShortTermMemory();
+      return {
+        content: [{ type: "text", text: "Short-term memory cleared." }],
       };
     }
 
-    leads.evaluated[leadIndex] = {
-      ...leads.evaluated[leadIndex],
-      ...updates,
-    };
+    const content = readShortTermMemory();
+    const size = getShortTermSize();
 
-    saveLeads(leads);
-
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Updated lead "${slug}": ${JSON.stringify(updates)}`,
-        },
-      ],
-    };
-  }
-
-  if (name === "add_lead") {
-    const { name: bizName, slug, industry, reason, website, contact, notes } = args as {
-      name: string;
-      slug: string;
-      industry?: string;
-      reason: string;
-      website?: string;
-      contact?: Record<string, string>;
-      notes?: string;
-    };
-
-    const leads = loadLeads();
-
-    // Check if slug already exists
-    const exists = (leads.evaluated || []).some((l: any) => l.slug === slug);
-    if (exists) {
+    if (!content) {
       return {
-        content: [{ type: "text", text: `Lead with slug "${slug}" already exists` }],
-        isError: true,
+        content: [{ type: "text", text: "Short-term memory is empty. Nothing to roll up." }],
       };
     }
 
-    const newLead = {
-      name: bizName,
-      slug,
-      date: getTorontoDate(),
-      status: "lead",
-      industry,
-      reason,
-      website: website || null,
-      contact,
-      notes,
-    };
-
-    leads.evaluated = leads.evaluated || [];
-    leads.evaluated.push(newLead);
-    saveLeads(leads);
-
     return {
-      content: [{ type: "text", text: `Added lead: ${bizName}` }],
+      content: [{
+        type: "text",
+        text: `Short-term Memory (${size} bytes):\n\n${content}\n\n---\nReview the above and save important memories to long-term using the 'remember' tool. Then call 'rollup' with clear=true to reset the buffer.`,
+      }],
     };
   }
+
+  // === Search ===
 
   if (name === "search_memory") {
     const { query } = args as { query: string };
 
-    const results = searchNotes(query);
+    const results = searchMemory(query);
 
     if (results.length === 0) {
       return {
@@ -535,7 +399,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     const formatted = results
-      .map((r) => `### ${r.category}\n${r.matches.join("\n\n")}`)
+      .map((r) => `### ${r.file}\n${r.matches.join("\n\n")}`)
       .join("\n\n");
 
     return {
@@ -552,7 +416,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("[MCP] Memory MCP server running");
+  console.error("[MCP] Memory MCP server v2.0 running");
 }
 
 main().catch((error) => {
