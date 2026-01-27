@@ -1,8 +1,13 @@
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
 
-// History stored in ~/.local/share/phouse/telegram/ by default
-const DATA_DIR = process.env.PHOUSE_DATA_DIR || path.join(process.env.HOME || "/home/ubuntu", ".local", "share", "phouse");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// History stored in pHouseMcp/data/telegram/ by default
+// Can be overridden via PHOUSE_DATA_DIR env var
+const DEFAULT_DATA_DIR = path.resolve(__dirname, "../../../data");
+const DATA_DIR = process.env.PHOUSE_DATA_DIR || DEFAULT_DATA_DIR;
 const HISTORY_DIR = path.join(DATA_DIR, "telegram");
 
 export interface Message {
