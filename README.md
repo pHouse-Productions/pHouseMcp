@@ -1,66 +1,133 @@
 # pHouse MCP
 
-Image generation and editing tools for Claude via the Model Context Protocol.
+A collection of modular MCP (Model Context Protocol) servers for Claude and other AI assistants.
 
-## Tools
+## Structure
 
-- **generate_image**: Generate images using AI with text prompts
-- **edit_image**: Edit existing images using AI with text prompts
-
-Both tools use OpenRouter's Gemini image generation models (Flash and Pro variants).
+```
+pHouseMcp/
+├── packages/           # Shared libraries
+│   ├── common/         # Common utilities (file ops, schemas)
+│   └── google-auth/    # Shared Google OAuth client
+├── servers/            # Individual MCP servers
+│   ├── telegram/       # Telegram messaging
+│   ├── gmail/          # Gmail read/send
+│   ├── google-docs/    # Google Docs CRUD
+│   ├── google-sheets/  # Google Sheets CRUD
+│   ├── google-drive/   # Google Drive file management
+│   ├── google-places/  # Google Places search
+│   ├── image-gen/      # AI image generation (OpenRouter/Gemini)
+│   ├── yahoo-finance/  # Stock quotes and data
+│   ├── cron/           # Scheduled tasks
+│   └── memory/         # Persistent notes and memory
+└── .env                # API keys and credentials
+```
 
 ## Setup
 
-1. Install dependencies:
+1. Clone the repo:
+   ```bash
+   git clone https://github.com/mcarcaso/pHouseMcp.git
+   cd pHouseMcp
+   ```
 
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Create `.env` file:
-
+3. Create `.env` file from example:
    ```bash
    cp .env.example .env
    ```
 
-3. Add your OpenRouter API key to `.env`:
+4. Configure your credentials in `.env` (see below)
 
-   ```
-   OPENROUTER_API_KEY=your_actual_key
-   ```
+## Configuration
 
-   Get an API key from https://openrouter.ai/keys
+### Required Environment Variables
 
-4. Build the project:
-   ```bash
-   npm run build
-   ```
+```env
+# For image-gen server
+OPENROUTER_API_KEY=your_openrouter_key
 
-## Add to Claude
+# For telegram server
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 
-From the root of this project, run:
+# For google-places server
+GOOGLE_PLACES_API_KEY=your_google_places_key
 
-```bash
-claude mcp add --transport stdio --scope user phousemcp -- node $(pwd)/dist/src/mcp-server.js
+# For Google services (gmail, docs, sheets, drive)
+GOOGLE_CREDENTIALS_PATH=/path/to/client_secret.json
+GOOGLE_TOKEN_PATH=/path/to/tokens.json
 ```
 
-Then restart Claude.
+### Google OAuth Setup
 
-## CLI Usage (Optional)
+1. Create a project in Google Cloud Console
+2. Enable the APIs you need (Gmail, Docs, Sheets, Drive)
+3. Create OAuth 2.0 credentials (Desktop app)
+4. Download as `client_secret.json`
+5. Run the auth flow to get `tokens.json` (one-time setup)
+
+## Adding to Claude
+
+Each server can be added to Claude independently. From the pHouseMcp directory:
 
 ```bash
-# Generate an image
-npm run genimage -- "a cat on a skateboard" output.png
-
-# Edit an image
-npm run editimage -- "make it sunset" input.png output.png
-
-# Options
-npm run genimage -- "prompt" output.png -a 16:9 -s 2K --pro
+# Add individual servers
+claude mcp add telegram npx --prefix servers/telegram tsx servers/telegram/src/mcp.ts
+claude mcp add gmail npx --prefix servers/gmail tsx servers/gmail/src/mcp.ts
+claude mcp add google-docs npx --prefix servers/google-docs tsx servers/google-docs/src/mcp.ts
+# etc.
 ```
 
-Options:
+Or edit `~/.claude.json` directly:
 
-- `-a, --aspect-ratio`: 1:1, 16:9, 4:3, etc.
-- `-s, --size`: 1K, 2K, 4K
-- `--pro`: Use Pro model for higher quality
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["--prefix", "/path/to/pHouseMcp/servers/telegram", "tsx", "/path/to/pHouseMcp/servers/telegram/src/mcp.ts"]
+    }
+  }
+}
+```
+
+## Servers
+
+### telegram
+Send and receive Telegram messages, photos, and documents.
+
+### gmail
+Fetch, read, and send emails via Gmail API.
+
+### google-docs
+Create, read, and edit Google Docs.
+
+### google-sheets
+Create, read, write, and append to Google Sheets.
+
+### google-drive
+Search, upload, delete, and share files in Google Drive.
+
+### google-places
+Search for businesses and get place details.
+
+### image-gen
+Generate and edit images using OpenRouter's Gemini models.
+
+### yahoo-finance
+Get stock quotes, historical data, and company profiles.
+
+### cron
+Schedule recurring and one-time tasks.
+
+### memory
+Persistent notes and memory across sessions.
+
+## License
+
+MIT

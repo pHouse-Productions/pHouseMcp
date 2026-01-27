@@ -8,7 +8,7 @@ import { dirname } from "path";
  */
 export async function saveBase64Image(
   base64Data: string,
-  outputPath: string,
+  outputPath: string
 ): Promise<void> {
   let base64String: string;
 
