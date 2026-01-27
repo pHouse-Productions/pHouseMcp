@@ -83,3 +83,10 @@ export function getDocsClient() {
 export function getGmailClient() {
   return google.gmail({ version: "v1", auth: getOAuth2Client() });
 }
+
+/**
+ * Get authenticated Google Calendar client
+ */
+export function getCalendarClient() {
+  return google.calendar({ version: "v3", auth: getOAuth2Client() });
+}
