@@ -156,7 +156,7 @@ async function deleteEvent(calendarId: string, eventId: string) {
 async function updateEvent(
   calendarId: string,
   eventId: string,
-  updates: { summary?: string; description?: string; location?: string; startDateTime?: string; endDateTime?: string }
+  updates: { summary?: string; description?: string; location?: string; startDateTime?: string; endDateTime?: string; attendees?: string[] }
 ) {
   // Get existing event first
   const existing = await calendar.events.get({ calendarId, eventId });
@@ -179,10 +179,20 @@ async function updateEvent(
     event.end = existing.data.end;
   }
 
+  // Handle attendees - merge with existing or replace
+  if (updates.attendees !== undefined) {
+    event.attendees = updates.attendees.map((email: string) => ({ email }));
+  } else {
+    event.attendees = existing.data.attendees;
+  }
+
+  const hasNewAttendees = updates.attendees && updates.attendees.length > 0;
+
   const response = await calendar.events.update({
     calendarId,
     eventId,
     requestBody: event,
+    sendUpdates: hasNewAttendees ? "all" : "none",
   });
 
   return {
@@ -190,6 +200,7 @@ async function updateEvent(
     summary: response.data.summary,
     start: formatDateTime(response.data.start?.dateTime, response.data.start?.date),
     end: formatDateTime(response.data.end?.dateTime, response.data.end?.date),
+    attendees: response.data.attendees?.map((a) => a.email) || [],
     htmlLink: response.data.htmlLink,
   };
 }
@@ -268,6 +279,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           location: { type: "string", description: "New event location" },
           start: { type: "string", description: "New start date/time in ISO format" },
           end: { type: "string", description: "New end date/time in ISO format" },
+          attendees: { type: "array", items: { type: "string" }, description: "Email addresses of attendees to invite" },
         },
         required: ["event_id"],
       },
@@ -321,7 +333,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   if (name === "update_event") {
-    const { event_id, calendar_id = "primary", summary, description, location, start, end } = args as any;
+    const { event_id, calendar_id = "primary", summary, description, location, start, end, attendees } = args as any;
     try {
       const event = await updateEvent(calendar_id, event_id, {
         summary,
@@ -329,6 +341,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         location,
         startDateTime: start,
         endDateTime: end,
+        attendees,
       });
       return { content: [{ type: "text", text: JSON.stringify(event, null, 2) }] };
     } catch (error) {
