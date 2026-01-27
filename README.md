@@ -65,10 +65,25 @@ GOOGLE_TOKEN_PATH=/path/to/tokens.json
 ### Google OAuth Setup
 
 1. Create a project in Google Cloud Console
-2. Enable the APIs you need (Gmail, Docs, Sheets, Drive)
+2. Enable the APIs you need (Gmail, Docs, Sheets, Drive, Calendar, Chat)
 3. Create OAuth 2.0 credentials (Desktop app)
 4. Download as `client_secret.json`
 5. Run the auth flow to get `tokens.json` (one-time setup)
+
+**Required OAuth Scopes:**
+
+The auth flow should request these scopes (depending on which services you use):
+- `https://mail.google.com/` - Gmail full access
+- `https://www.googleapis.com/auth/calendar` - Google Calendar
+- `https://www.googleapis.com/auth/documents` - Google Docs
+- `https://www.googleapis.com/auth/spreadsheets` - Google Sheets
+- `https://www.googleapis.com/auth/drive` - Google Drive
+- `https://www.googleapis.com/auth/presentations` - Google Slides
+- `https://www.googleapis.com/auth/chat.spaces` - Google Chat spaces
+- `https://www.googleapis.com/auth/chat.messages` - Google Chat messages
+- `https://www.googleapis.com/auth/chat.memberships` - Google Chat memberships
+
+**Note for Google Chat:** If using the Chat API, you must also configure a Chat app in the Google Cloud Console under APIs & Services > Google Chat API > Configuration. This is required even when using user authentication. See the pHouseClawd README for detailed setup instructions.
 
 ## Adding to Claude
 
