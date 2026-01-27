@@ -107,7 +107,8 @@ async function createEvent(
   endDateTime: string,
   description?: string,
   location?: string,
-  allDay?: boolean
+  allDay?: boolean,
+  attendees?: string[]
 ) {
   const event: any = {
     summary,
@@ -126,9 +127,15 @@ async function createEvent(
     event.end = { dateTime: endDateTime, timeZone: "America/Toronto" };
   }
 
+  // Add attendees if provided
+  if (attendees && attendees.length > 0) {
+    event.attendees = attendees.map((email: string) => ({ email }));
+  }
+
   const response = await calendar.events.insert({
     calendarId,
     requestBody: event,
+    sendUpdates: attendees && attendees.length > 0 ? "all" : "none",
   });
 
   return {
@@ -136,6 +143,7 @@ async function createEvent(
     summary: response.data.summary,
     start: formatDateTime(response.data.start?.dateTime, response.data.start?.date),
     end: formatDateTime(response.data.end?.dateTime, response.data.end?.date),
+    attendees: response.data.attendees?.map((a) => a.email) || [],
     htmlLink: response.data.htmlLink,
   };
 }
@@ -230,6 +238,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           location: { type: "string", description: "Event location (optional)" },
           calendar_id: { type: "string", description: "Calendar ID (default: 'primary')" },
           all_day: { type: "boolean", description: "Create as all-day event (default: false)" },
+          attendees: { type: "array", items: { type: "string" }, description: "Email addresses of attendees to invite (optional)" },
         },
         required: ["summary", "start", "end"],
       },
@@ -292,9 +301,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   if (name === "create_event") {
-    const { summary, start, end, description, location, calendar_id = "primary", all_day = false } = args as any;
+    const { summary, start, end, description, location, calendar_id = "primary", all_day = false, attendees } = args as any;
     try {
-      const event = await createEvent(calendar_id, summary, start, end, description, location, all_day);
+      const event = await createEvent(calendar_id, summary, start, end, description, location, all_day, attendees);
       return { content: [{ type: "text", text: JSON.stringify(event, null, 2) }] };
     } catch (error) {
       return { content: [{ type: "text", text: `Failed to create event: ${error}` }], isError: true };
