@@ -126,7 +126,7 @@ Fetch, read, and send emails via Gmail API. Manage Gmail filters.
 **Tools:**
 - `fetch_emails` - Fetch recent emails from inbox
 - `read_email` - Read full email content by ID
-- `send_email` - Send emails with optional attachments
+- `send_email` - Send emails with optional attachments and custom sender name (`from_name` parameter)
 - `list_filters` - List all Gmail filters
 - `create_filter` - Create filters (forward, star, archive, etc.)
 - `delete_filter` - Delete a filter by ID
@@ -156,6 +156,15 @@ Schedule recurring and one-time tasks.
 
 ### memory
 Persistent notes and memory across sessions.
+
+**Tools:**
+- `recall` - Read from long-term memory (list files, read specific file, or search)
+- `remember` - Save to long-term memory (append or replace mode)
+- `forget` - Delete a long-term memory file
+- `search_memory` - Search across all long-term memory files
+- `read_short_term` - Read the short-term conversation buffer
+- `short_term_status` - Check buffer size and if truncation is recommended
+- `truncate_short_term` - Remove older half of buffer entries (keeps recent)
 
 ## Development
 

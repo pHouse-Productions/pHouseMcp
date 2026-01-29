@@ -94,6 +94,28 @@ function clearShortTermMemory(): void {
   }
 }
 
+function truncateShortTermMemory(): { linesBefore: number; linesAfter: number } {
+  if (!fs.existsSync(SHORT_TERM_FILE)) {
+    return { linesBefore: 0, linesAfter: 0 };
+  }
+
+  const content = fs.readFileSync(SHORT_TERM_FILE, "utf-8");
+  const lines = content.split("\n").filter(l => l.trim());
+  const linesBefore = lines.length;
+
+  if (linesBefore <= 1) {
+    return { linesBefore, linesAfter: linesBefore };
+  }
+
+  // Keep the newer half (second half of the file)
+  const halfIndex = Math.floor(linesBefore / 2);
+  const keptLines = lines.slice(halfIndex);
+
+  fs.writeFileSync(SHORT_TERM_FILE, keptLines.join("\n") + "\n");
+
+  return { linesBefore, linesAfter: keptLines.length };
+}
+
 // Search across all long-term memory files
 function searchMemory(query: string): Array<{ file: string; matches: string[] }> {
   const results: Array<{ file: string; matches: string[] }> = [];
@@ -211,17 +233,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
-      name: "rollup",
+      name: "truncate_short_term",
       description:
-        "Trigger a memory roll-up. Reads short-term memory and returns it for processing. After you've extracted and saved important memories to long-term, call with clear=true to reset the buffer.",
+        "Truncate the short-term memory buffer by removing the older half of entries. Use this to trim the buffer when it gets too large. Keeps the most recent entries.",
       inputSchema: {
         type: "object" as const,
-        properties: {
-          clear: {
-            type: "boolean",
-            description: "Set to true to clear short-term memory after reading. Only do this AFTER you've saved important memories to long-term.",
-          },
-        },
+        properties: {},
         required: [],
       },
     },
@@ -363,29 +380,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 
-  if (name === "rollup") {
-    const { clear } = args as { clear?: boolean };
+  if (name === "truncate_short_term") {
+    const { linesBefore, linesAfter } = truncateShortTermMemory();
 
-    if (clear) {
-      clearShortTermMemory();
+    if (linesBefore === 0) {
       return {
-        content: [{ type: "text", text: "Short-term memory cleared." }],
+        content: [{ type: "text", text: "Short-term memory is empty. Nothing to truncate." }],
       };
     }
 
-    const content = readShortTermMemory();
-    const size = getShortTermSize();
-
-    if (!content) {
+    if (linesBefore === linesAfter) {
       return {
-        content: [{ type: "text", text: "Short-term memory is empty. Nothing to roll up." }],
+        content: [{ type: "text", text: `Short-term memory only has ${linesBefore} line(s). Nothing to truncate.` }],
       };
     }
 
     return {
       content: [{
         type: "text",
-        text: `Short-term Memory (${size} bytes):\n\n${content}\n\n---\nReview the above and save important memories to long-term using the 'remember' tool. Then call 'rollup' with clear=true to reset the buffer.`,
+        text: `Truncated short-term memory: ${linesBefore} → ${linesAfter} lines (removed ${linesBefore - linesAfter} older entries)`,
       }],
     };
   }

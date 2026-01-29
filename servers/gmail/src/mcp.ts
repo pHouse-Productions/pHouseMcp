@@ -275,6 +275,11 @@ async function deleteFilter(filterId: string): Promise<void> {
   });
 }
 
+async function getUserEmail(): Promise<string> {
+  const profile = await gmail.users.getProfile({ userId: "me" });
+  return profile.data.emailAddress || "";
+}
+
 async function sendEmail(
   to: string,
   subject: string,
@@ -284,13 +289,20 @@ async function sendEmail(
   bcc?: string,
   attachments?: string[],
   threadId?: string,
-  inReplyTo?: string
+  inReplyTo?: string,
+  fromName?: string
 ): Promise<string> {
   const messageParts = [
     `To: ${to}`,
     `Subject: ${subject}`,
     "MIME-Version: 1.0",
   ];
+
+  // Add From header with custom name if provided
+  if (fromName) {
+    const userEmail = await getUserEmail();
+    messageParts.unshift(`From: "${fromName}" <${userEmail}>`);
+  }
 
   if (inReplyTo) {
     messageParts.push(`In-Reply-To: ${inReplyTo}`);
@@ -396,6 +408,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           attachments: { type: "array", items: { type: "string" }, description: "Optional array of file paths to attach to the email" },
           thread_id: { type: "string", description: "Thread ID to reply within (keeps reply in same conversation)" },
           in_reply_to: { type: "string", description: "Message-ID header of the email being replied to" },
+          from_name: { type: "string", description: "Optional display name for the sender (e.g., 'Vito'). Email address is auto-detected from account." },
         },
         required: ["to", "subject", "body"],
       },
@@ -470,9 +483,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   if (name === "send_email") {
-    const { to, subject, body, html, cc, bcc, attachments, thread_id, in_reply_to } = args as any;
+    const { to, subject, body, html, cc, bcc, attachments, thread_id, in_reply_to, from_name } = args as any;
     try {
-      const messageId = await sendEmail(to, subject, body, html, cc, bcc, attachments, thread_id, in_reply_to);
+      const messageId = await sendEmail(to, subject, body, html, cc, bcc, attachments, thread_id, in_reply_to, from_name);
       return { content: [{ type: "text", text: `Email sent successfully. Message ID: ${messageId}` }] };
     } catch (error) {
       return { content: [{ type: "text", text: `Failed to send email: ${error}` }], isError: true };
