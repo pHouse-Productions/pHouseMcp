@@ -179,6 +179,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["space_name", "file_path"],
       },
     },
+    {
+      name: "send_message",
+      description: "Send a text message to a Google Chat space",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          space_name: {
+            type: "string",
+            description: "The resource name of the space (format: spaces/SPACE)",
+          },
+          text: {
+            type: "string",
+            description: "The message text to send",
+          },
+        },
+        required: ["space_name", "text"],
+      },
+    },
   ],
 }));
 
@@ -478,6 +496,40 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const errMsg = error instanceof Error ? error.message : String(error);
       return {
         content: [{ type: "text", text: `Failed to send attachment: ${errMsg}` }],
+        isError: true,
+      };
+    }
+  }
+
+  if (name === "send_message") {
+    const { space_name, text } = args as {
+      space_name: string;
+      text: string;
+    };
+
+    try {
+      const response = await chat.spaces.messages.create({
+        parent: space_name,
+        requestBody: {
+          text,
+        },
+      });
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            success: true,
+            message_name: response.data.name,
+            text: response.data.text,
+            createTime: response.data.createTime,
+          }, null, 2),
+        }],
+      };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      return {
+        content: [{ type: "text", text: `Failed to send message: ${errMsg}` }],
         isError: true,
       };
     }

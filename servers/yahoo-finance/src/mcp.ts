@@ -5,10 +5,10 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 // @ts-ignore - yahoo-finance2 types are complex
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
 
-// Cast to any to avoid type complexity
-const yf: any = yahooFinance;
+// v2 exports a class that needs to be instantiated
+const yf: any = new YahooFinance();
 
 interface StockQuote {
   symbol: string;
