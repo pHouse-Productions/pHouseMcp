@@ -79,6 +79,8 @@ GOOGLE_TOKEN_PATH=/path/to/tokens.json
 
 The auth flow should request these scopes (depending on which services you use):
 - `https://mail.google.com/` - Gmail full access
+- `https://www.googleapis.com/auth/gmail.settings.basic` - Gmail filter management
+- `https://www.googleapis.com/auth/gmail.settings.sharing` - Gmail forwarding settings
 - `https://www.googleapis.com/auth/calendar` - Google Calendar
 - `https://www.googleapis.com/auth/documents` - Google Docs
 - `https://www.googleapis.com/auth/spreadsheets` - Google Sheets
@@ -119,7 +121,17 @@ Each server can be added to Claude. Edit `~/.claude.json`:
 Send and receive Telegram messages, photos, and documents.
 
 ### gmail
-Fetch, read, and send emails via Gmail API.
+Fetch, read, and send emails via Gmail API. Manage Gmail filters.
+
+**Tools:**
+- `fetch_emails` - Fetch recent emails from inbox
+- `read_email` - Read full email content by ID
+- `send_email` - Send emails with optional attachments
+- `list_filters` - List all Gmail filters
+- `create_filter` - Create filters (forward, star, archive, etc.)
+- `delete_filter` - Delete a filter by ID
+
+**Note:** To create filters with forwarding, you must first verify the forwarding address in Gmail settings (Settings → Forwarding and POP/IMAP → Add a forwarding address).
 
 ### google-docs
 Create, read, and edit Google Docs.
