@@ -24,8 +24,6 @@ const SHORT_TERM_FILE = path.join(SHORT_TERM_DIR, "buffer.txt");
 // Log the resolved path on startup for debugging
 console.error(`[MCP] Memory root: ${PHOUSE_CLAWD_ROOT}`);
 
-// Size threshold for roll-up recommendation (10KB default)
-const SIZE_THRESHOLD = 10 * 1024;
 
 // Ensure directories exist
 if (!fs.existsSync(LONG_TERM_DIR)) {
@@ -81,12 +79,6 @@ function readShortTermMemory(): string {
   return "";
 }
 
-function getShortTermSize(): number {
-  if (fs.existsSync(SHORT_TERM_FILE)) {
-    return fs.statSync(SHORT_TERM_FILE).size;
-  }
-  return 0;
-}
 
 function clearShortTermMemory(): void {
   if (fs.existsSync(SHORT_TERM_FILE)) {
@@ -216,16 +208,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: "read_short_term",
       description:
         "Read the short-term memory buffer. This contains recent conversation logs that haven't been rolled up into long-term memory yet.",
-      inputSchema: {
-        type: "object" as const,
-        properties: {},
-        required: [],
-      },
-    },
-    {
-      name: "short_term_status",
-      description:
-        "Get the status of short-term memory (size in bytes, whether roll-up is recommended).",
       inputSchema: {
         type: "object" as const,
         properties: {},
@@ -366,17 +348,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     return {
       content: [{ type: "text", text: `Short-term Memory:\n\n${content}` }],
-    };
-  }
-
-  if (name === "short_term_status") {
-    const size = getShortTermSize();
-    const needsRollup = size >= SIZE_THRESHOLD;
-    return {
-      content: [{
-        type: "text",
-        text: `Short-term Memory Status:\n- Size: ${size} bytes (${(size / 1024).toFixed(2)} KB)\n- Threshold: ${SIZE_THRESHOLD} bytes (${(SIZE_THRESHOLD / 1024).toFixed(2)} KB)\n- Roll-up recommended: ${needsRollup ? "YES" : "No"}`,
-      }],
     };
   }
 

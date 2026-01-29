@@ -163,7 +163,6 @@ Persistent notes and memory across sessions.
 - `forget` - Delete a long-term memory file
 - `search_memory` - Search across all long-term memory files
 - `read_short_term` - Read the short-term conversation buffer
-- `short_term_status` - Check buffer size and if truncation is recommended
 - `truncate_short_term` - Remove older half of buffer entries (keeps recent)
 
 ## Development
