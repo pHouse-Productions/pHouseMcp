@@ -149,6 +149,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "string",
             description: "Local file path to save the attachment to",
           },
+          resource_name: {
+            type: "string",
+            description: "Optional: the attachmentDataRef.resourceName if available from list_messages or get_attachments. If not provided, will attempt to use attachment_name.",
+          },
         },
         required: ["attachment_name", "output_path"],
       },
@@ -291,6 +295,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           contentType: att.contentType,
           thumbnailUri: att.thumbnailUri,
           downloadUri: att.downloadUri,
+          // Include attachmentDataRef if available - needed for media.download
+          attachmentDataRef: att.attachmentDataRef,
         })) || [],
       }));
 
@@ -329,6 +335,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         thumbnailUri: att.thumbnailUri,
         downloadUri: att.downloadUri,
         source: att.source,
+        // Include attachmentDataRef if available - needed for media.download
+        attachmentDataRef: att.attachmentDataRef,
       })) || [];
 
       return {
@@ -351,58 +359,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   if (name === "download_attachment") {
-    const { attachment_name, output_path } = args as { attachment_name: string; output_path: string };
+    const { attachment_name, output_path, resource_name } = args as {
+      attachment_name: string;
+      output_path: string;
+      resource_name?: string;
+    };
 
     try {
-      // Parse the attachment_name to get the message name
-      // Format: spaces/SPACE/messages/MESSAGE/attachments/ATTACHMENT
-      const parts = attachment_name.split('/');
-      if (parts.length < 6) {
-        return {
-          content: [{ type: "text", text: "Invalid attachment name format. Expected: spaces/SPACE/messages/MESSAGE/attachments/ATTACHMENT" }],
-          isError: true,
-        };
-      }
-      const messageName = parts.slice(0, 4).join('/');
+      // Per Google docs, media.download requires attachmentDataRef.resourceName
+      // If resource_name is provided (from list_messages/get_attachments), use it
+      // Otherwise fall back to the attachment_name
+      const downloadResourceName = resource_name || attachment_name;
 
-      // Get the message to find the attachment's downloadUri
-      const msgResponse = await chat.spaces.messages.get({
-        name: messageName,
+      const downloadResponse = await chat.media.download({
+        resourceName: downloadResourceName,
+      }, {
+        responseType: 'arraybuffer',
       });
-
-      // Find the matching attachment
-      const attachments = msgResponse.data.attachment || [];
-      const attachment = attachments.find(att => att.name === attachment_name);
-
-      if (!attachment) {
-        return {
-          content: [{ type: "text", text: `Attachment not found in message. Available: ${attachments.map(a => a.name).join(', ')}` }],
-          isError: true,
-        };
-      }
-
-      const downloadUri = attachment.downloadUri;
-      if (!downloadUri) {
-        return {
-          content: [{ type: "text", text: "Attachment has no downloadUri" }],
-          isError: true,
-        };
-      }
-
-      // Get fresh access token
-      const credentials = await auth.getAccessToken();
-      const accessToken = credentials.token;
-
-      // Download using the downloadUri with auth header
-      const response = await fetch(downloadUri, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
-      }
 
       // Ensure output directory exists
       const outputDir = path.dirname(output_path);
@@ -411,8 +384,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // Write to file
-      const arrayBuffer = await response.arrayBuffer();
-      fs.writeFileSync(output_path, Buffer.from(arrayBuffer));
+      fs.writeFileSync(output_path, Buffer.from(downloadResponse.data as ArrayBuffer));
 
       return {
         content: [{
@@ -420,8 +392,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           text: JSON.stringify({
             success: true,
             attachment_name,
-            content_name: attachment.contentName,
-            content_type: attachment.contentType,
+            resource_name_used: downloadResourceName,
             saved_to: output_path,
           }, null, 2),
         }],
