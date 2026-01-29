@@ -96,6 +96,7 @@ async function listEvents(calendarId: string, maxResults: number, timeMin?: stri
     end: formatDateTime(event.end?.dateTime, event.end?.date),
     location: event.location,
     description: event.description,
+    attendees: event.attendees?.map((a) => a.email) || [],
     htmlLink: event.htmlLink,
   }));
 }
