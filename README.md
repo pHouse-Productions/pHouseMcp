@@ -17,7 +17,8 @@ pHouseMcp/
 │   ├── google-drive/   # Google Drive file management
 │   ├── google-places/  # Google Places search
 │   ├── image-gen/      # AI image generation (OpenRouter/Gemini)
-│   ├── yahoo-finance/  # Stock quotes and data
+│   ├── finnhub/        # Stock quotes, news, and company data (Finnhub API)
+│   ├── yahoo-finance/  # Stock quotes and data (deprecated - use finnhub)
 │   ├── cron/           # Scheduled tasks
 │   └── memory/         # Persistent notes and memory
 └── .env                # API keys and credentials
@@ -65,6 +66,9 @@ GOOGLE_PLACES_API_KEY=your_google_places_key
 # For Google services (gmail, docs, sheets, drive)
 GOOGLE_CREDENTIALS_PATH=/path/to/client_secret.json
 GOOGLE_TOKEN_PATH=/path/to/tokens.json
+
+# For finnhub server (stock data)
+FINNHUB_API_KEY=your_finnhub_api_key
 ```
 
 ### Google OAuth Setup
@@ -160,8 +164,22 @@ Search for businesses and get place details.
 ### image-gen
 Generate and edit images using OpenRouter's Gemini models.
 
-### yahoo-finance
-Get stock quotes, historical data, and company profiles.
+### finnhub
+Get real-time stock quotes, company news, and profiles via Finnhub API.
+
+**Tools:**
+- `get_stock_quote` - Current price, change, high/low, open/close
+- `get_company_profile` - Name, industry, market cap, website, logo
+- `get_company_news` - Recent news articles for a specific stock
+- `get_market_news` - General market news (general, forex, crypto, merger)
+- `search_symbol` - Search for stock symbols by company name
+
+**Setup:**
+1. Get a free API key at [finnhub.io](https://finnhub.io)
+2. Add `FINNHUB_API_KEY=your_key` to your `.env` file
+
+### yahoo-finance (deprecated)
+Get stock quotes, historical data, and company profiles. **Note:** Yahoo Finance rate-limits aggressively. Use `finnhub` instead for reliable stock data.
 
 ### cron
 Schedule recurring and one-time tasks.
