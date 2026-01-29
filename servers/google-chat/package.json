@@ -11,11 +11,13 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "dotenv": "^16.0.0",
-    "googleapis": "^144.0.0"
+    "googleapis": "^144.0.0",
+    "mime-types": "^2.1.35"
   },
   "devDependencies": {
+    "@types/mime-types": "^2.1.4",
     "@types/node": "^22.19.7",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.9.3"
   }
 }

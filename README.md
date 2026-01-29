@@ -142,6 +142,18 @@ Create, read, write, and append to Google Sheets.
 ### google-drive
 Search, upload, delete, and share files in Google Drive.
 
+### google-chat
+Interact with Google Chat spaces - reactions, messages, and attachments.
+
+**Tools:**
+- `add_reaction` - Add an emoji reaction to a message
+- `remove_reaction` - Remove a reaction
+- `list_reactions` - List all reactions on a message
+- `list_messages` - List recent messages from a space
+- `get_attachments` - Get attachment metadata from a message
+- `download_attachment` - Download an attachment to local file
+- `send_attachment` - Upload and send a file to a space
+
 ### google-places
 Search for businesses and get place details.
 
