@@ -371,11 +371,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Otherwise fall back to the attachment_name
       const downloadResourceName = resource_name || attachment_name;
 
-      const downloadResponse = await chat.media.download({
-        resourceName: downloadResourceName,
-      }, {
-        responseType: 'arraybuffer',
+      // Get access token for direct HTTP request
+      const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, "utf-8"));
+      const accessToken = tokens.access_token;
+
+      // Use direct HTTP request - the SDK has issues with the media endpoint
+      const url = `https://chat.googleapis.com/v1/media/${encodeURIComponent(downloadResourceName)}?alt=media`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
 
       // Ensure output directory exists
       const outputDir = path.dirname(output_path);
@@ -384,7 +395,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // Write to file
-      fs.writeFileSync(output_path, Buffer.from(downloadResponse.data as ArrayBuffer));
+      const arrayBuffer = await response.arrayBuffer();
+      fs.writeFileSync(output_path, Buffer.from(arrayBuffer));
 
       return {
         content: [{
@@ -398,10 +410,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }],
       };
     } catch (error: any) {
-      // Google API errors have nested structure
-      const errMsg = error?.response?.data?.error?.message
-        || error?.message
-        || JSON.stringify(error, null, 2);
+      const errMsg = error?.message || String(error);
       return {
         content: [{ type: "text", text: `Failed to download attachment: ${errMsg}` }],
         isError: true,
