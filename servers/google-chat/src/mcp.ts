@@ -397,8 +397,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }, null, 2),
         }],
       };
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
+    } catch (error: any) {
+      // Google API errors have nested structure
+      const errMsg = error?.response?.data?.error?.message
+        || error?.message
+        || JSON.stringify(error, null, 2);
       return {
         content: [{ type: "text", text: `Failed to download attachment: ${errMsg}` }],
         isError: true,
