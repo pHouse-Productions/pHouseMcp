@@ -9,9 +9,13 @@
     "servers/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present"
+    "build:packages": "npm run build -w packages/common -w packages/google-auth --if-present",
+    "build:servers": "npm run build --workspaces --if-present",
+    "build": "npm run build:packages && npm run build:servers",
+    "clean": "rm -rf packages/*/dist servers/*/dist"
   },
   "devDependencies": {
+    "@types/node": "^22.19.7",
     "typescript": "^5.9.3"
   }
 }

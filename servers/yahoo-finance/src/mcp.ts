@@ -4,11 +4,11 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import YahooFinance from "yahoo-finance2";
+// @ts-ignore - yahoo-finance2 types are complex
+import yahooFinance from "yahoo-finance2";
 
-const yahooFinance = new YahooFinance({
-  suppressNotices: ["yahooSurvey", "ripHistorical"],
-});
+// Cast to any to avoid type complexity
+const yf: any = yahooFinance;
 
 interface StockQuote {
   symbol: string;
@@ -59,7 +59,7 @@ interface CompanyProfile {
 }
 
 async function getStockQuote(symbol: string): Promise<StockQuote> {
-  const quote: any = await yahooFinance.quote(symbol);
+  const quote: any = await yf.quote(symbol);
 
   return {
     symbol: quote.symbol,
@@ -122,7 +122,7 @@ async function getStockHistory(
 
   const dates = periodMap[period] || periodMap["1mo"];
 
-  const history: any = await yahooFinance.historical(symbol, {
+  const history: any = await yf.historical(symbol, {
     period1: dates.period1,
     period2: dates.period2,
   });
@@ -140,8 +140,8 @@ async function getStockHistory(
 
 async function getCompanyProfile(symbol: string): Promise<CompanyProfile> {
   const [quote, quoteSummary]: [any, any] = await Promise.all([
-    yahooFinance.quote(symbol),
-    yahooFinance.quoteSummary(symbol, {
+    yf.quote(symbol),
+    yf.quoteSummary(symbol, {
       modules: ["assetProfile", "summaryDetail", "defaultKeyStatistics"],
     }),
   ]);
@@ -173,7 +173,7 @@ async function getCompanyProfile(symbol: string): Promise<CompanyProfile> {
 async function searchStocks(
   query: string
 ): Promise<Array<{ symbol: string; name: string; type: string; exchange: string }>> {
-  const results: any = await yahooFinance.search(query);
+  const results: any = await yf.search(query);
 
   return (results.quotes || [])
     .filter((q: any) => q.symbol && q.shortname)

@@ -92,8 +92,8 @@ async function listEvents(calendarId: string, maxResults: number, timeMin?: stri
   return events.map((event) => ({
     id: event.id,
     summary: event.summary || "(No title)",
-    start: formatDateTime(event.start?.dateTime, event.start?.date),
-    end: formatDateTime(event.end?.dateTime, event.end?.date),
+    start: formatDateTime(event.start?.dateTime ?? undefined, event.start?.date ?? undefined),
+    end: formatDateTime(event.end?.dateTime ?? undefined, event.end?.date ?? undefined),
     location: event.location,
     description: event.description,
     attendees: event.attendees?.map((a) => a.email) || [],
@@ -142,8 +142,8 @@ async function createEvent(
   return {
     id: response.data.id,
     summary: response.data.summary,
-    start: formatDateTime(response.data.start?.dateTime, response.data.start?.date),
-    end: formatDateTime(response.data.end?.dateTime, response.data.end?.date),
+    start: formatDateTime(response.data.start?.dateTime ?? undefined, response.data.start?.date ?? undefined),
+    end: formatDateTime(response.data.end?.dateTime ?? undefined, response.data.end?.date ?? undefined),
     attendees: response.data.attendees?.map((a) => a.email) || [],
     htmlLink: response.data.htmlLink,
   };
@@ -199,8 +199,8 @@ async function updateEvent(
   return {
     id: response.data.id,
     summary: response.data.summary,
-    start: formatDateTime(response.data.start?.dateTime, response.data.start?.date),
-    end: formatDateTime(response.data.end?.dateTime, response.data.end?.date),
+    start: formatDateTime(response.data.start?.dateTime ?? undefined, response.data.start?.date ?? undefined),
+    end: formatDateTime(response.data.end?.dateTime ?? undefined, response.data.end?.date ?? undefined),
     attendees: response.data.attendees?.map((a) => a.email) || [],
     htmlLink: response.data.htmlLink,
   };

@@ -22,9 +22,10 @@ async function searchFiles(query: string, fileType?: string, maxResults: number 
     q += " and mimeType='application/vnd.google-apps.spreadsheet'";
   } else if (fileType === "document") {
     q += " and mimeType='application/vnd.google-apps.document'";
-  } else if (fileType === "all") {
-    q += " and (mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.document')";
+  } else if (fileType === "pdf") {
+    q += " and mimeType='application/pdf'";
   }
+  // "all" or undefined = no mimeType filter, returns everything
 
   q += " and trashed=false";
 
@@ -55,9 +56,10 @@ async function listRecentFiles(fileType?: string, maxResults: number = 20) {
     q += " and mimeType='application/vnd.google-apps.spreadsheet'";
   } else if (fileType === "document") {
     q += " and mimeType='application/vnd.google-apps.document'";
-  } else if (fileType === "all") {
-    q += " and (mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.document')";
+  } else if (fileType === "pdf") {
+    q += " and mimeType='application/pdf'";
   }
+  // "all" or undefined = no mimeType filter, returns everything
 
   const response = await drive.files.list({
     q,
@@ -137,6 +139,66 @@ async function makeFilePublic(fileId: string) {
   return { fileId, webViewLink: file.data.webViewLink };
 }
 
+async function createFolder(name: string, parentId?: string) {
+  const fileMetadata: any = {
+    name,
+    mimeType: "application/vnd.google-apps.folder",
+  };
+  if (parentId) fileMetadata.parents = [parentId];
+
+  const response = await drive.files.create({
+    requestBody: fileMetadata,
+    fields: "id, name, webViewLink",
+  });
+
+  return {
+    folderId: response.data.id,
+    name: response.data.name,
+    webViewLink: response.data.webViewLink,
+  };
+}
+
+async function moveFile(fileId: string, newParentId: string) {
+  // Get the current parents
+  const file = await drive.files.get({ fileId, fields: "parents" });
+  const previousParents = file.data.parents?.join(",") || "";
+
+  // Move to new parent
+  const response = await drive.files.update({
+    fileId,
+    addParents: newParentId,
+    removeParents: previousParents,
+    fields: "id, name, parents, webViewLink",
+  });
+
+  return {
+    fileId: response.data.id,
+    name: response.data.name,
+    newParentId,
+    webViewLink: response.data.webViewLink,
+  };
+}
+
+async function listFolder(folderId: string, maxResults: number = 50) {
+  const response = await drive.files.list({
+    q: `'${folderId}' in parents and trashed=false`,
+    pageSize: maxResults,
+    fields: "files(id, name, mimeType, createdTime, modifiedTime, webViewLink)",
+    orderBy: "name",
+  });
+
+  return {
+    files: (response.data.files || []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      mimeType: f.mimeType,
+      createdTime: f.createdTime,
+      modifiedTime: f.modifiedTime,
+      webViewLink: f.webViewLink,
+    })),
+  };
+}
+
 const server = new Server(
   { name: "google-drive", version: "1.0.0" },
   { capabilities: { tools: {} } }
@@ -146,12 +208,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "search_files",
-      description: "Search for Google Docs and Sheets by name. Returns matching files with their IDs, names, and links.",
+      description: "Search for files in Google Drive by name. Returns matching files with their IDs, names, and links.",
       inputSchema: {
         type: "object" as const,
         properties: {
           query: { type: "string", description: "Search query to match against file names" },
-          file_type: { type: "string", enum: ["spreadsheet", "document", "all"], description: "Filter by file type (default: all)" },
+          file_type: { type: "string", enum: ["spreadsheet", "document", "pdf", "all"], description: "Filter by file type. 'all' returns all file types including PDFs, images, etc. (default: all)" },
           max_results: { type: "number", description: "Maximum number of results to return (default: 20)" },
         },
         required: ["query"],
@@ -159,11 +221,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "list_recent_files",
-      description: "List recent Google Docs and Sheets, sorted by last modified time.",
+      description: "List recent files in Google Drive, sorted by last modified time.",
       inputSchema: {
         type: "object" as const,
         properties: {
-          file_type: { type: "string", enum: ["spreadsheet", "document", "all"], description: "Filter by file type (default: all)" },
+          file_type: { type: "string", enum: ["spreadsheet", "document", "pdf", "all"], description: "Filter by file type. 'all' returns all file types including PDFs, images, etc. (default: all)" },
           max_results: { type: "number", description: "Maximum number of results to return (default: 20)" },
         },
         required: [],
@@ -215,6 +277,42 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           file_id: { type: "string", description: "The Google Drive file ID to make public" },
         },
         required: ["file_id"],
+      },
+    },
+    {
+      name: "create_folder",
+      description: "Create a new folder in Google Drive. Returns the folder ID and link.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          name: { type: "string", description: "Name of the folder to create" },
+          parent_id: { type: "string", description: "Optional parent folder ID. If not specified, creates in root." },
+        },
+        required: ["name"],
+      },
+    },
+    {
+      name: "move_file",
+      description: "Move a file or folder to a different parent folder in Google Drive.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          file_id: { type: "string", description: "The file or folder ID to move" },
+          new_parent_id: { type: "string", description: "The destination folder ID" },
+        },
+        required: ["file_id", "new_parent_id"],
+      },
+    },
+    {
+      name: "list_folder",
+      description: "List contents of a Google Drive folder.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          folder_id: { type: "string", description: "The folder ID to list contents of" },
+          max_results: { type: "number", description: "Maximum number of results (default: 50)" },
+        },
+        required: ["folder_id"],
       },
     },
   ],
@@ -280,6 +378,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (error) {
       return { content: [{ type: "text", text: `Failed to make file public: ${error}` }], isError: true };
+    }
+  }
+
+  if (name === "create_folder") {
+    const { name: folderName, parent_id } = args as { name: string; parent_id?: string };
+    try {
+      const result = await createFolder(folderName, parent_id);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (error) {
+      return { content: [{ type: "text", text: `Failed to create folder: ${error}` }], isError: true };
+    }
+  }
+
+  if (name === "move_file") {
+    const { file_id, new_parent_id } = args as { file_id: string; new_parent_id: string };
+    try {
+      const result = await moveFile(file_id, new_parent_id);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (error) {
+      return { content: [{ type: "text", text: `Failed to move file: ${error}` }], isError: true };
+    }
+  }
+
+  if (name === "list_folder") {
+    const { folder_id, max_results = 50 } = args as { folder_id: string; max_results?: number };
+    try {
+      const result = await listFolder(folder_id, max_results);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (error) {
+      return { content: [{ type: "text", text: `Failed to list folder: ${error}` }], isError: true };
     }
   }
 

@@ -36,10 +36,13 @@ export function getOAuth2Client(): Auth.OAuth2Client {
     throw new Error("Invalid credentials file format - missing client_id or client_secret");
   }
 
+  // Get redirect URI from credentials or use default
+  const redirectUri = credentials.web?.redirect_uris?.[1] || credentials.installed?.redirect_uris?.[0] || "http://localhost:3000";
+
   oauth2Client = new google.auth.OAuth2(
     client_id,
     client_secret,
-    "http://localhost:8080"
+    redirectUri
   );
 
   const tokens = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));

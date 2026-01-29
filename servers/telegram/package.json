@@ -2,8 +2,11 @@
   "name": "@phouse/mcp-telegram",
   "version": "1.0.0",
   "type": "module",
+  "main": "dist/mcp.js",
   "scripts": {
-    "start": "npx tsx src/mcp.ts"
+    "build": "tsc",
+    "start": "node dist/mcp.js",
+    "dev": "npx tsx src/mcp.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
