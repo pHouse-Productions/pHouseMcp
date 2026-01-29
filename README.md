@@ -18,7 +18,6 @@ pHouseMcp/
 │   ├── google-places/  # Google Places search
 │   ├── image-gen/      # AI image generation (OpenRouter/Gemini)
 │   ├── finnhub/        # Stock quotes, news, and company data (Finnhub API)
-│   ├── yahoo-finance/  # Stock quotes and data (deprecated - use finnhub)
 │   ├── cron/           # Scheduled tasks
 │   └── memory/         # Persistent notes and memory
 └── .env                # API keys and credentials
@@ -177,9 +176,6 @@ Get real-time stock quotes, company news, and profiles via Finnhub API.
 **Setup:**
 1. Get a free API key at [finnhub.io](https://finnhub.io)
 2. Add `FINNHUB_API_KEY=your_key` to your `.env` file
-
-### yahoo-finance (deprecated)
-Get stock quotes, historical data, and company profiles. **Note:** Yahoo Finance rate-limits aggressively. Use `finnhub` instead for reliable stock data.
 
 ### cron
 Schedule recurring and one-time tasks.
