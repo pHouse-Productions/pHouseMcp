@@ -36,12 +36,17 @@ pHouseMcp/
    npm install
    ```
 
-3. Create `.env` file from example:
+3. Build all servers (compiles TypeScript to JavaScript):
+   ```bash
+   npm run build
+   ```
+
+4. Create `.env` file from example:
    ```bash
    cp .env.example .env
    ```
 
-4. Configure your credentials in `.env` (see below)
+5. Configure your credentials in `.env` (see below)
 
 ## Configuration
 
@@ -87,29 +92,26 @@ The auth flow should request these scopes (depending on which services you use):
 
 ## Adding to Claude
 
-Each server can be added to Claude independently. From the pHouseMcp directory:
+**Important:** Servers are pre-compiled to JavaScript for faster startup. Make sure you've run `npm run build` first.
 
-```bash
-# Add individual servers
-claude mcp add telegram npx --prefix servers/telegram tsx servers/telegram/src/mcp.ts
-claude mcp add gmail npx --prefix servers/gmail tsx servers/gmail/src/mcp.ts
-claude mcp add google-docs npx --prefix servers/google-docs tsx servers/google-docs/src/mcp.ts
-# etc.
-```
-
-Or edit `~/.claude.json` directly:
+Each server can be added to Claude. Edit `~/.claude.json`:
 
 ```json
 {
   "mcpServers": {
     "telegram": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["--prefix", "/path/to/pHouseMcp/servers/telegram", "tsx", "/path/to/pHouseMcp/servers/telegram/src/mcp.ts"]
+      "command": "node",
+      "args": ["/path/to/pHouseMcp/servers/telegram/dist/mcp.js"],
+      "env": {
+        "TELEGRAM_BOT_TOKEN": "your_token"
+      }
     }
   }
 }
 ```
+
+**Note:** We use `node dist/mcp.js` (compiled JavaScript) instead of `npx tsx src/mcp.ts` (TypeScript) for faster MCP startup times.
 
 ## Servers
 
@@ -142,6 +144,42 @@ Schedule recurring and one-time tasks.
 
 ### memory
 Persistent notes and memory across sessions.
+
+## Development
+
+### Making Changes
+
+After modifying any TypeScript files, you **must rebuild** for the changes to take effect:
+
+```bash
+# Rebuild everything (packages first, then servers)
+npm run build
+
+# Or rebuild a specific server
+cd servers/telegram && npm run build
+```
+
+### Project Structure
+
+- **packages/** - Shared libraries that servers depend on
+  - `common/` - Utility functions
+  - `google-auth/` - Shared Google OAuth client
+- **servers/** - Individual MCP servers, each with:
+  - `src/mcp.ts` - Source TypeScript
+  - `dist/mcp.js` - Compiled JavaScript (after build)
+  - `tsconfig.json` - TypeScript config
+
+### Build Order
+
+The build runs in order: `packages/common` → `packages/google-auth` → all servers. This is handled automatically by the root `npm run build` script.
+
+### Adding a New Server
+
+1. Create `servers/your-server/` with `src/mcp.ts`, `package.json`, `tsconfig.json`
+2. Add it to the root `package.json` workspaces
+3. Add it to the build script in root `package.json`
+4. Run `npm install && npm run build`
+5. Add to `~/.claude.json` mcpServers section
 
 ## License
 
