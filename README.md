@@ -121,7 +121,16 @@ Each server can be added to Claude. Edit `~/.claude.json`:
 ## Servers
 
 ### telegram
-Send and receive Telegram messages, photos, and documents.
+Send and receive Telegram messages, photos, and documents. Add and remove emoji reactions.
+
+**Tools:**
+- `get_history` - Get last N messages from a conversation
+- `send_typing` - Show typing indicator
+- `send_message` - Send a text message
+- `send_document` - Send a file/document
+- `send_photo` - Send a photo (renders inline)
+- `add_reaction` - Add an emoji reaction to a message
+- `remove_reaction` - Remove all bot reactions from a message
 
 ### gmail
 Fetch, read, and send emails via Gmail API. Manage Gmail filters.
