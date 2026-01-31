@@ -122,6 +122,46 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["chat_id", "file_path"],
       },
     },
+    {
+      name: "add_reaction",
+      description: "Add an emoji reaction to a Telegram message",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          chat_id: {
+            type: "number",
+            description: "The Telegram chat ID",
+          },
+          message_id: {
+            type: "number",
+            description: "The message ID to react to",
+          },
+          emoji: {
+            type: "string",
+            description: "The emoji to react with (e.g., '👀', '✅', '🔄')",
+          },
+        },
+        required: ["chat_id", "message_id", "emoji"],
+      },
+    },
+    {
+      name: "remove_reaction",
+      description: "Remove an emoji reaction from a Telegram message (removes all bot reactions)",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          chat_id: {
+            type: "number",
+            description: "The Telegram chat ID",
+          },
+          message_id: {
+            type: "number",
+            description: "The message ID to remove reaction from",
+          },
+        },
+        required: ["chat_id", "message_id"],
+      },
+    },
   ],
 }));
 
@@ -228,6 +268,46 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const errMsg = error instanceof Error ? error.message : String(error);
       return {
         content: [{ type: "text", text: `Failed to send photo: ${errMsg}` }],
+        isError: true,
+      };
+    }
+  }
+
+  if (name === "add_reaction") {
+    const { chat_id, message_id, emoji } = args as {
+      chat_id: number;
+      message_id: number;
+      emoji: string;
+    };
+
+    try {
+      await bot.telegram.setMessageReaction(chat_id, message_id, [
+        { type: "emoji", emoji } as any,
+      ]);
+      return { content: [] };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      return {
+        content: [{ type: "text", text: `Failed to add reaction: ${errMsg}` }],
+        isError: true,
+      };
+    }
+  }
+
+  if (name === "remove_reaction") {
+    const { chat_id, message_id } = args as {
+      chat_id: number;
+      message_id: number;
+    };
+
+    try {
+      // Pass empty array to remove all reactions
+      await bot.telegram.setMessageReaction(chat_id, message_id, []);
+      return { content: [] };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      return {
+        content: [{ type: "text", text: `Failed to remove reaction: ${errMsg}` }],
         isError: true,
       };
     }

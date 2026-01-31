@@ -10,15 +10,18 @@ pHouseMcp/
 │   ├── common/         # Common utilities (file ops, schemas)
 │   └── google-auth/    # Shared Google OAuth client
 ├── servers/            # Individual MCP servers
-│   ├── telegram/       # Telegram messaging
-│   ├── gmail/          # Gmail read/send
+│   ├── telegram/       # Telegram messaging + reactions
+│   ├── gmail/          # Gmail read/send/filters
+│   ├── discord/        # Discord messaging + reactions
 │   ├── google-docs/    # Google Docs CRUD
 │   ├── google-sheets/  # Google Sheets CRUD
 │   ├── google-drive/   # Google Drive file management
+│   ├── google-calendar/# Google Calendar events
+│   ├── google-chat/    # Google Chat messaging + reactions
 │   ├── google-places/  # Google Places search
 │   ├── image-gen/      # AI image generation (OpenRouter/Gemini)
 │   ├── finnhub/        # Stock quotes, news, and company data (Finnhub API)
-│   ├── yahoo-finance/  # Stock quotes and data (deprecated - use finnhub)
+│   ├── pdf/            # PDF to markdown/images conversion
 │   ├── cron/           # Scheduled tasks
 │   └── memory/         # Persistent notes and memory
 └── .env                # API keys and credentials
@@ -60,10 +63,13 @@ OPENROUTER_API_KEY=your_openrouter_key
 # For telegram server
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 
+# For discord server
+DISCORD_BOT_TOKEN=your_discord_bot_token
+
 # For google-places server
 GOOGLE_PLACES_API_KEY=your_google_places_key
 
-# For Google services (gmail, docs, sheets, drive)
+# For Google services (gmail, docs, sheets, drive, calendar, chat)
 GOOGLE_CREDENTIALS_PATH=/path/to/client_secret.json
 GOOGLE_TOKEN_PATH=/path/to/tokens.json
 
@@ -122,7 +128,16 @@ Each server can be added to Claude. Edit `~/.claude.json`:
 ## Servers
 
 ### telegram
-Send and receive Telegram messages, photos, and documents.
+Send and receive Telegram messages, photos, and documents. Add and remove emoji reactions.
+
+**Tools:**
+- `get_history` - Get last N messages from a conversation
+- `send_typing` - Show typing indicator
+- `send_message` - Send a text message
+- `send_document` - Send a file/document
+- `send_photo` - Send a photo (renders inline)
+- `add_reaction` - Add an emoji reaction to a message
+- `remove_reaction` - Remove all bot reactions from a message
 
 ### gmail
 Fetch, read, and send emails via Gmail API. Manage Gmail filters.
@@ -137,6 +152,23 @@ Fetch, read, and send emails via Gmail API. Manage Gmail filters.
 
 **Note:** To create filters with forwarding, you must first verify the forwarding address in Gmail settings (Settings → Forwarding and POP/IMAP → Add a forwarding address).
 
+### discord
+Send and receive Discord messages, files, and emoji reactions.
+
+**Tools:**
+- `get_history` - Get last N messages from a channel
+- `send_typing` - Show typing indicator
+- `send_message` - Send a text message
+- `send_file` - Send a file with optional caption
+- `add_reaction` - Add an emoji reaction to a message
+- `remove_reaction` - Remove an emoji reaction
+
+**Setup:**
+1. Create a Discord bot at [Discord Developer Portal](https://discord.com/developers/applications)
+2. Enable Message Content Intent in Bot settings
+3. Add bot to your server with appropriate permissions
+4. Add `DISCORD_BOT_TOKEN=your_token` to your `.env` file
+
 ### google-docs
 Create, read, and edit Google Docs.
 
@@ -145,6 +177,27 @@ Create, read, write, and append to Google Sheets.
 
 ### google-drive
 Search, upload, delete, and share files in Google Drive.
+
+**Tools:**
+- `search_files` - Search for files by name
+- `list_recent_files` - List recently modified files
+- `upload_file` - Upload a local file to Drive
+- `delete_file` - Permanently delete a file
+- `share_file` - Share with an email address
+- `make_file_public` - Make a file publicly viewable
+- `create_folder` - Create a new folder
+- `move_file` - Move a file to a different folder
+- `list_folder` - List contents of a folder
+
+### google-calendar
+Create, read, update, and delete Google Calendar events.
+
+**Tools:**
+- `list_events` - List upcoming events
+- `create_event` - Create a new event
+- `update_event` - Update an existing event
+- `delete_event` - Delete an event
+- `list_calendars` - List all accessible calendars
 
 ### google-chat
 Interact with Google Chat spaces - reactions, messages, and attachments.
@@ -178,11 +231,24 @@ Get real-time stock quotes, company news, and profiles via Finnhub API.
 1. Get a free API key at [finnhub.io](https://finnhub.io)
 2. Add `FINNHUB_API_KEY=your_key` to your `.env` file
 
-### yahoo-finance (deprecated)
-Get stock quotes, historical data, and company profiles. **Note:** Yahoo Finance rate-limits aggressively. Use `finnhub` instead for reliable stock data.
+### pdf
+Convert PDF files to markdown or images.
+
+**Tools:**
+- `convert_pdf_to_markdown` - Extract text from PDF pages
+- `convert_pdf_to_images` - Convert each page to PNG images
 
 ### cron
 Schedule recurring and one-time tasks.
+
+**Tools:**
+- `list_jobs` - List all scheduled jobs
+- `create_job` - Create a recurring job with cron/human-readable schedule
+- `edit_job` - Edit an existing job
+- `delete_job` - Delete a job
+- `toggle_job` - Enable/disable a job
+- `get_job` - Get detailed info about a job
+- `schedule_once` - Schedule a one-off task
 
 ### memory
 Persistent notes and memory across sessions.
