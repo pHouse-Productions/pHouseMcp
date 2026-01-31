@@ -21,6 +21,44 @@ if (!botToken) {
 
 const bot = new Telegraf(botToken);
 
+const TELEGRAM_MAX_LENGTH = 4096;
+
+/**
+ * Split a message into chunks that fit within Telegram's character limit.
+ * Tries to split at paragraph breaks, then line breaks, then hard limit.
+ */
+function splitMessage(message: string, maxLength: number = TELEGRAM_MAX_LENGTH): string[] {
+  const chunks: string[] = [];
+
+  if (message.length <= maxLength) {
+    chunks.push(message);
+  } else {
+    let remaining = message;
+    while (remaining.length > 0) {
+      if (remaining.length <= maxLength) {
+        chunks.push(remaining);
+        break;
+      }
+
+      // Try to split at a paragraph break
+      let splitIndex = remaining.lastIndexOf("\n\n", maxLength);
+      if (splitIndex === -1 || splitIndex < maxLength / 2) {
+        // No good paragraph break, try single newline
+        splitIndex = remaining.lastIndexOf("\n", maxLength);
+      }
+      if (splitIndex === -1 || splitIndex < maxLength / 2) {
+        // No good newline, just split at max length
+        splitIndex = maxLength;
+      }
+
+      chunks.push(remaining.slice(0, splitIndex));
+      remaining = remaining.slice(splitIndex).trimStart();
+    }
+  }
+
+  return chunks;
+}
+
 const server = new Server(
   { name: "telegram", version: "1.0.0" },
   { capabilities: { tools: {} } }
@@ -203,7 +241,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { chat_id, text } = args as { chat_id: number; text: string };
 
     try {
-      await bot.telegram.sendMessage(chat_id, text);
+      // Split message into chunks if it exceeds Telegram's limit
+      const chunks = splitMessage(text);
+
+      for (const chunk of chunks) {
+        await bot.telegram.sendMessage(chat_id, chunk);
+        // Small delay between chunks to maintain order
+        if (chunks.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
       saveMessage(chat_id, {
         role: "assistant",
         text: text,

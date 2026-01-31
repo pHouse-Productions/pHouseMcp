@@ -19,6 +19,44 @@ if (!botToken) {
   throw new Error("DISCORD_BOT_TOKEN environment variable is required");
 }
 
+const DISCORD_MAX_LENGTH = 2000;
+
+/**
+ * Split a message into chunks that fit within Discord's character limit.
+ * Tries to split at paragraph breaks, then line breaks, then hard limit.
+ */
+function splitMessage(message: string, maxLength: number = DISCORD_MAX_LENGTH): string[] {
+  const chunks: string[] = [];
+
+  if (message.length <= maxLength) {
+    chunks.push(message);
+  } else {
+    let remaining = message;
+    while (remaining.length > 0) {
+      if (remaining.length <= maxLength) {
+        chunks.push(remaining);
+        break;
+      }
+
+      // Try to split at a paragraph break
+      let splitIndex = remaining.lastIndexOf("\n\n", maxLength);
+      if (splitIndex === -1 || splitIndex < maxLength / 2) {
+        // No good paragraph break, try single newline
+        splitIndex = remaining.lastIndexOf("\n", maxLength);
+      }
+      if (splitIndex === -1 || splitIndex < maxLength / 2) {
+        // No good newline, just split at max length
+        splitIndex = maxLength;
+      }
+
+      chunks.push(remaining.slice(0, splitIndex));
+      remaining = remaining.slice(splitIndex).trimStart();
+    }
+  }
+
+  return chunks;
+}
+
 // Create Discord client with necessary intents
 const client = new Client({
   intents: [
@@ -221,7 +259,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
       const channel = await client.channels.fetch(channel_id);
       if (channel && (channel instanceof TextChannel || channel instanceof DMChannel || channel instanceof NewsChannel)) {
-        await channel.send(text);
+        // Split message into chunks if it exceeds Discord's limit
+        const chunks = splitMessage(text);
+
+        for (const chunk of chunks) {
+          await channel.send(chunk);
+          // Small delay between chunks to maintain order
+          if (chunks.length > 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
         saveMessage(channel_id, {
           role: "assistant",
           text: text,
