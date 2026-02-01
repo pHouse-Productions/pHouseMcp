@@ -8,7 +8,8 @@ A collection of modular MCP (Model Context Protocol) servers for Claude and othe
 pHouseMcp/
 ├── packages/           # Shared libraries
 │   ├── common/         # Common utilities (file ops, schemas)
-│   └── google-auth/    # Shared Google OAuth client
+│   ├── google-auth/    # Shared Google OAuth client
+│   └── http-transport/ # HTTP transport for persistent MCP servers
 ├── servers/            # Individual MCP servers
 │   ├── telegram/       # Telegram messaging + reactions
 │   ├── gmail/          # Gmail read/send/filters
