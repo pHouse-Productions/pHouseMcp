@@ -23,6 +23,28 @@ config({ path: path.resolve(__dirname, "../../../.env") });
 const sheets = getSheetsClient();
 const drive = getDriveClient();
 
+// Timeout for Google API calls (30 seconds)
+const API_TIMEOUT_MS = 30000;
+
+// Wrapper to add timeout to any async operation
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = API_TIMEOUT_MS): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`Operation timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId!);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId!);
+    throw error;
+  }
+}
+
 async function createSpreadsheet(title: string, sheetNames?: string[]) {
   const requestBody: any = { properties: { title } };
 
@@ -30,7 +52,7 @@ async function createSpreadsheet(title: string, sheetNames?: string[]) {
     requestBody.sheets = sheetNames.map((name) => ({ properties: { title: name } }));
   }
 
-  const response = await sheets.spreadsheets.create({ requestBody });
+  const response = await withTimeout(sheets.spreadsheets.create({ requestBody }));
   const spreadsheetId = response.data.spreadsheetId!;
 
   return {
@@ -41,11 +63,11 @@ async function createSpreadsheet(title: string, sheetNames?: string[]) {
 }
 
 async function shareSpreadsheet(spreadsheetId: string, email: string, role: string) {
-  await drive.permissions.create({
+  await withTimeout(drive.permissions.create({
     fileId: spreadsheetId,
     requestBody: { type: "user", role, emailAddress: email },
     sendNotificationEmail: true,
-  });
+  }));
 
   return {
     spreadsheetId,
@@ -56,7 +78,7 @@ async function shareSpreadsheet(spreadsheetId: string, email: string, role: stri
 }
 
 async function readSpreadsheet(spreadsheetId: string, range: string) {
-  const response = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+  const response = await withTimeout(sheets.spreadsheets.values.get({ spreadsheetId, range }));
   return {
     spreadsheetId,
     range,
@@ -65,12 +87,12 @@ async function readSpreadsheet(spreadsheetId: string, range: string) {
 }
 
 async function writeSpreadsheet(spreadsheetId: string, range: string, values: string[][]) {
-  const response = await sheets.spreadsheets.values.update({
+  const response = await withTimeout(sheets.spreadsheets.values.update({
     spreadsheetId,
     range,
     valueInputOption: "USER_ENTERED",
     requestBody: { values },
-  });
+  }));
 
   return {
     updatedCells: response.data.updatedCells || 0,
@@ -79,13 +101,13 @@ async function writeSpreadsheet(spreadsheetId: string, range: string, values: st
 }
 
 async function appendToSpreadsheet(spreadsheetId: string, range: string, values: string[][]) {
-  const response = await sheets.spreadsheets.values.append({
+  const response = await withTimeout(sheets.spreadsheets.values.append({
     spreadsheetId,
     range,
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
     requestBody: { values },
-  });
+  }));
 
   return {
     updatedCells: response.data.updates?.updatedCells || 0,
@@ -203,7 +225,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (name === "get_spreadsheet_link") {
     const { spreadsheet_id } = args as { spreadsheet_id: string };
     try {
-      await sheets.spreadsheets.get({ spreadsheetId: spreadsheet_id });
+      await withTimeout(sheets.spreadsheets.get({ spreadsheetId: spreadsheet_id }));
       return { content: [{ type: "text", text: `https://docs.google.com/spreadsheets/d/${spreadsheet_id}/edit` }] };
     } catch (error) {
       return { content: [{ type: "text", text: `Failed to get spreadsheet link: ${error}` }], isError: true };

@@ -23,8 +23,7 @@ pHouseMcp/
 │   ├── image-gen/      # AI image generation (OpenRouter/Gemini)
 │   ├── finnhub/        # Stock quotes, news, and company data (Finnhub API)
 │   ├── pdf/            # PDF to markdown/images conversion
-│   ├── cron/           # Scheduled tasks
-│   └── memory/         # Persistent notes and memory
+│   └── cron/           # Scheduled tasks
 └── .env                # API keys and credentials
 ```
 
@@ -67,7 +66,7 @@ bash scripts/switch-to-http.sh
 
 This will:
 1. Install the `mcp-servers` systemd service
-2. Start all 14 HTTP servers (ports 3001-3014)
+2. Start all 13 HTTP servers (ports 3002-3014)
 3. Update your Claude config to use HTTP transport
 
 ### Service Management
@@ -104,7 +103,6 @@ bash scripts/switch-to-stdio.sh
 
 | Server | Port |
 |--------|------|
-| memory | 3001 |
 | cron | 3002 |
 | gmail | 3003 |
 | google-calendar | 3004 |
@@ -316,17 +314,6 @@ Schedule recurring and one-time tasks.
 - `toggle_job` - Enable/disable a job
 - `get_job` - Get detailed info about a job
 - `schedule_once` - Schedule a one-off task
-
-### memory
-Persistent notes and memory across sessions.
-
-**Tools:**
-- `recall` - Read from long-term memory (list files, read specific file, or search)
-- `remember` - Save to long-term memory (append or replace mode)
-- `forget` - Delete a long-term memory file
-- `search_memory` - Search across all long-term memory files
-- `read_short_term` - Read the short-term conversation buffer
-- `truncate_short_term` - Remove older half of buffer entries (keeps recent)
 
 ## Development
 
