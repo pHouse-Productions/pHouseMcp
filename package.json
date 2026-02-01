@@ -9,10 +9,14 @@
     "servers/*"
   ],
   "scripts": {
-    "build:packages": "npm run build -w packages/common -w packages/google-auth --if-present",
+    "build:packages": "npm run build -w packages/common -w packages/google-auth -w packages/http-transport --if-present",
     "build:servers": "npm run build --workspaces --if-present",
     "build": "npm run build:packages && npm run build:servers",
-    "clean": "rm -rf packages/*/dist servers/*/dist"
+    "clean": "rm -rf packages/*/dist servers/*/dist",
+    "http:start": "node scripts/run-http-servers.js",
+    "http:test": "bash scripts/test-http-servers.sh",
+    "http:switch": "bash scripts/switch-to-http.sh",
+    "http:revert": "bash scripts/switch-to-stdio.sh"
   },
   "devDependencies": {
     "@types/mime-types": "^3.0.1",

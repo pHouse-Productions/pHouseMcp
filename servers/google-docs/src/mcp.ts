@@ -1,5 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { runHttpServer } from "@phouse/http-transport";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -9,6 +10,13 @@ import * as path from "path";
 import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
+
+// Parse command line arguments
+const args = process.argv.slice(2);
+const useHttp = args.includes("--http");
+const portIndex = args.indexOf("--port");
+const httpPort = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : 3005;
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 config({ path: path.resolve(__dirname, "../../../.env") });
@@ -294,9 +302,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("[MCP] Google Docs server running (v2.0.0 - HTML CRUD)");
+  if (useHttp) {
+    // HTTP mode - run as persistent server
+    console.error(`[MCP] Google Docs server starting in HTTP mode on port ${httpPort}`);
+    await runHttpServer(server, { port: httpPort, name: "google-docs" });
+  } else {
+    // Stdio mode - traditional subprocess
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error("[MCP] Google Docs server running (stdio)");
+  }
 }
 
 main().catch((error) => {

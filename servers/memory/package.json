@@ -6,10 +6,12 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/mcp.js",
+    "start:http": "node dist/mcp.js --http --port 3001",
     "dev": "npx tsx src/mcp.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@phouse/http-transport": "*",
     "dotenv": "^16.0.0"
   },
   "devDependencies": {

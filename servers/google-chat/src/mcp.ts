@@ -1,5 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { runHttpServer } from "@phouse/http-transport";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -11,6 +12,13 @@ import { fileURLToPath } from "url";
 import { config } from "dotenv";
 import { Readable } from "stream";
 import * as mime from "mime-types";
+
+// Parse command line arguments
+const args = process.argv.slice(2);
+const useHttp = args.includes("--http");
+const portIndex = args.indexOf("--port");
+const httpPort = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : 3011;
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 config({ path: path.resolve(__dirname, "../../../.env") });
@@ -542,9 +550,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("[MCP] Google Chat MCP server running");
+  if (useHttp) {
+    // HTTP mode - run as persistent server
+    console.error(`[MCP] Google Chat server starting in HTTP mode on port ${httpPort}`);
+    await runHttpServer(server, { port: httpPort, name: "google-chat" });
+  } else {
+    // Stdio mode - traditional subprocess
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error("[MCP] Google Chat server running (stdio)");
+  }
 }
 
 main().catch((error) => {

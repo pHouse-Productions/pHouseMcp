@@ -7,12 +7,14 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/mcp.js",
-    "dev": "npx tsx src/mcp.ts"
+    "dev": "npx tsx src/mcp.ts",
+    "start:http": "node dist/mcp.js --http --port 3004"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "dotenv": "^16.4.7",
-    "googleapis": "^146.0.0"
+    "googleapis": "^146.0.0",
+    "@phouse/http-transport": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

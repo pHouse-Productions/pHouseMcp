@@ -1,5 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { runHttpServer } from "@phouse/http-transport";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -8,6 +9,13 @@ import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
 import { fileURLToPath } from "url";
+
+// Parse command line arguments
+const args = process.argv.slice(2);
+const useHttp = args.includes("--http");
+const portIndex = args.indexOf("--port");
+const httpPort = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : 3002;
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -498,9 +506,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("[MCP] Cron MCP server running");
+  if (useHttp) {
+    // HTTP mode - run as persistent server
+    console.error(`[MCP] Cron server starting in HTTP mode on port ${httpPort}`);
+    await runHttpServer(server, { port: httpPort, name: "cron" });
+  } else {
+    // Stdio mode - traditional subprocess
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error("[MCP] Cron server running (stdio)");
+  }
 }
 
 main().catch((error) => {

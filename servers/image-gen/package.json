@@ -6,14 +6,16 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/mcp.js",
-    "dev": "npx tsx src/mcp.ts"
+    "dev": "npx tsx src/mcp.ts",
+    "start:http": "node dist/mcp.js --http --port 3013"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@openrouter/sdk": "^0.3.16",
     "@phouse/common": "*",
     "dotenv": "^16.0.0",
-    "zod": "^3.22.0"
+    "zod": "^3.22.0",
+    "@phouse/http-transport": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

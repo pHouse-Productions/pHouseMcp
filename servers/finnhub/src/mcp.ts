@@ -1,10 +1,18 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { runHttpServer } from "@phouse/http-transport";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import "dotenv/config";
+
+// Parse command line arguments
+const args = process.argv.slice(2);
+const useHttp = args.includes("--http");
+const portIndex = args.indexOf("--port");
+const httpPort = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : 3012;
+
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 const BASE_URL = "https://finnhub.io/api/v1";
@@ -421,9 +429,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("[MCP] Finnhub MCP server running");
+  if (useHttp) {
+    // HTTP mode - run as persistent server
+    console.error(`[MCP] Finnhub server starting in HTTP mode on port ${httpPort}`);
+    await runHttpServer(server, { port: httpPort, name: "finnhub" });
+  } else {
+    // Stdio mode - traditional subprocess
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error("[MCP] Finnhub server running (stdio)");
+  }
 }
 
 main().catch((error) => {

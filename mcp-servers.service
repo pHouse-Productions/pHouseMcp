@@ -1,0 +1,20 @@
+[Unit]
+Description=pHouse MCP HTTP Servers
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/pHouseMcp
+ExecStart=/usr/bin/node /home/ubuntu/pHouseMcp/scripts/run-http-servers.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/home/ubuntu/pHouseMcp/logs/mcp-servers.log
+StandardError=append:/home/ubuntu/pHouseMcp/logs/mcp-servers.log
+
+# Environment
+Environment=NODE_ENV=production
+EnvironmentFile=-/home/ubuntu/pHouseMcp/.env
+
+[Install]
+WantedBy=multi-user.target

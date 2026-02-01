@@ -1,0 +1,18 @@
+{
+  "servers": {
+    "memory": { "port": 3001 },
+    "cron": { "port": 3002 },
+    "gmail": { "port": 3003 },
+    "google-calendar": { "port": 3004 },
+    "google-docs": { "port": 3005 },
+    "google-drive": { "port": 3006 },
+    "google-places": { "port": 3007 },
+    "google-sheets": { "port": 3008 },
+    "telegram": { "port": 3009 },
+    "discord": { "port": 3010 },
+    "google-chat": { "port": 3011 },
+    "finnhub": { "port": 3012 },
+    "image-gen": { "port": 3013 },
+    "pdf": { "port": 3014 }
+  }
+}

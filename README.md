@@ -52,6 +52,72 @@ pHouseMcp/
 
 5. Configure your credentials in `.env` (see below)
 
+6. **Recommended:** Enable HTTP mode for shared servers (see below)
+
+## HTTP Mode (Recommended)
+
+By default, Claude spawns each MCP server as a subprocess per session (~1.5GB RAM). HTTP mode runs all servers as a single shared systemd service.
+
+### Enable HTTP Mode
+
+```bash
+bash scripts/switch-to-http.sh
+```
+
+This will:
+1. Install the `mcp-servers` systemd service
+2. Start all 14 HTTP servers (ports 3001-3014)
+3. Update your Claude config to use HTTP transport
+
+### Service Management
+
+```bash
+sudo systemctl status mcp-servers   # Check status
+sudo systemctl restart mcp-servers  # Restart (after code changes)
+sudo systemctl stop mcp-servers     # Stop all servers
+
+# View logs
+tail -f logs/mcp-servers.log
+
+# Health check all servers
+npm run http:test
+```
+
+### After Code Changes
+
+When you modify MCP server code:
+```bash
+npm run build                        # Rebuild TypeScript
+sudo systemctl restart mcp-servers   # Restart service
+```
+
+Active Claude sessions reconnect automatically.
+
+### Revert to stdio Mode
+
+```bash
+bash scripts/switch-to-stdio.sh
+```
+
+### Port Mapping
+
+| Server | Port |
+|--------|------|
+| memory | 3001 |
+| cron | 3002 |
+| gmail | 3003 |
+| google-calendar | 3004 |
+| google-docs | 3005 |
+| google-drive | 3006 |
+| google-places | 3007 |
+| google-sheets | 3008 |
+| telegram | 3009 |
+| discord | 3010 |
+| google-chat | 3011 |
+| finnhub | 3012 |
+| image-gen | 3013 |
+| pdf | 3014 |
+
 ## Configuration
 
 ### Required Environment Variables
@@ -275,6 +341,11 @@ npm run build
 cd servers/telegram && npm run build
 ```
 
+**If using HTTP mode**, also restart the service:
+```bash
+sudo systemctl restart mcp-servers
+```
+
 ### Project Structure
 
 - **packages/** - Shared libraries that servers depend on
@@ -292,10 +363,19 @@ The build runs in order: `packages/common` → `packages/google-auth` → all se
 ### Adding a New Server
 
 1. Create `servers/your-server/` with `src/mcp.ts`, `package.json`, `tsconfig.json`
-2. Add it to the root `package.json` workspaces
-3. Add it to the build script in root `package.json`
-4. Run `npm install && npm run build`
-5. Add to `~/.claude.json` mcpServers section
+2. Add HTTP support by importing `@phouse/http-transport` (see existing servers)
+3. Add port mapping to `mcp-servers.json`
+4. Update `scripts/switch-to-http.sh` and `scripts/switch-to-stdio.sh`
+5. Run `npm install && npm run build`
+6. If using HTTP mode:
+   ```bash
+   sudo systemctl restart mcp-servers
+   claude mcp add -s user --transport http your-server http://127.0.0.1:<port>/mcp
+   ```
+7. If using stdio mode:
+   ```bash
+   claude mcp add your-server -- node /path/to/servers/your-server/dist/mcp.js
+   ```
 
 ## License
 
