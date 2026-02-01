@@ -27,6 +27,8 @@ const PHOUSE_CLAWD_ROOT = process.env.PHOUSE_PROJECT_ROOT ||
 const LONG_TERM_DIR = path.join(PHOUSE_CLAWD_ROOT, "memory/long-term");
 const SHORT_TERM_DIR = path.join(PHOUSE_CLAWD_ROOT, "memory/short-term");
 const SHORT_TERM_FILE = path.join(SHORT_TERM_DIR, "buffer.txt");
+const ROLLUP_PENDING_DIR = path.join(PHOUSE_CLAWD_ROOT, "memory/rollup-pending");
+const ROLLUP_LOCK_FILE = path.join(ROLLUP_PENDING_DIR, ".rollup.lock");
 
 // Log the resolved path on startup for debugging
 console.error(`[MCP] Memory root: ${PHOUSE_CLAWD_ROOT}`);
@@ -78,12 +80,50 @@ function deleteLongTermFile(filename: string): boolean {
   return false;
 }
 
-// Short-term memory operations
-function readShortTermMemory(): string {
-  if (fs.existsSync(SHORT_TERM_FILE)) {
-    return fs.readFileSync(SHORT_TERM_FILE, "utf-8");
+// Get pending chunks sorted by timestamp (oldest first)
+function getPendingChunks(): string[] {
+  if (!fs.existsSync(ROLLUP_PENDING_DIR)) {
+    return [];
   }
-  return "";
+  return fs.readdirSync(ROLLUP_PENDING_DIR)
+    .filter(f => f.startsWith("chunk-") && f.endsWith(".txt"))
+    .map(f => path.join(ROLLUP_PENDING_DIR, f))
+    .sort(); // Oldest first (timestamp in filename)
+}
+
+// Short-term memory operations
+// IMPORTANT: This includes both the buffer AND any pending chunks that haven't been rolled up yet.
+// This ensures no context gap when a message arrives after chunk extraction but before rollup completes.
+function readShortTermMemory(): string {
+  const parts: string[] = [];
+
+  // First, include any pending chunks (oldest to newest)
+  // These contain context that was extracted but not yet rolled up to long-term memory
+  const pendingChunks = getPendingChunks();
+  for (const chunkPath of pendingChunks) {
+    try {
+      const content = fs.readFileSync(chunkPath, "utf-8");
+      if (content.trim()) {
+        parts.push(`--- PENDING ROLLUP (${path.basename(chunkPath)}) ---\n${content}`);
+      }
+    } catch {
+      // Skip unreadable chunks
+    }
+  }
+
+  // Then include the current buffer
+  if (fs.existsSync(SHORT_TERM_FILE)) {
+    const bufferContent = fs.readFileSync(SHORT_TERM_FILE, "utf-8");
+    if (bufferContent.trim()) {
+      if (parts.length > 0) {
+        parts.push(`--- CURRENT BUFFER ---\n${bufferContent}`);
+      } else {
+        parts.push(bufferContent);
+      }
+    }
+  }
+
+  return parts.join("\n\n");
 }
 
 
