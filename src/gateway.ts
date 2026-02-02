@@ -30,6 +30,7 @@ import { createServer as createSheetsServer } from "./servers/google-sheets.js";
 import { createServer as createChatServer } from "./servers/google-chat.js";
 import { createServer as createDiscordServer } from "./servers/discord.js";
 import * as path from "path";
+import * as fs from "fs";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
 
@@ -48,10 +49,26 @@ interface ServerConfig {
   path: string;
   requiredEnv: string[];
   create: () => Promise<any>;
+  checkFn?: () => { ok: boolean; missing?: string };
 }
 
 function checkEnvVars(vars: string[]): boolean {
   return vars.every((v) => !!process.env[v]);
+}
+
+// Check for Google OAuth credentials (env vars or default paths)
+function checkGoogleCredentials(): { ok: boolean; missing?: string } {
+  const configDir = path.join(process.env.HOME || "", ".config", "phouse");
+  const credentialsPath = process.env.GOOGLE_CREDENTIALS_PATH || path.join(configDir, "google_credentials.json");
+  const tokenPath = process.env.GOOGLE_TOKEN_PATH || path.join(configDir, "google_token.json");
+
+  if (!fs.existsSync(credentialsPath)) {
+    return { ok: false, missing: `credentials (${credentialsPath})` };
+  }
+  if (!fs.existsSync(tokenPath)) {
+    return { ok: false, missing: `token (${tokenPath})` };
+  }
+  return { ok: true };
 }
 
 async function main() {
@@ -101,36 +118,42 @@ async function main() {
       name: "gmail",
       path: "/gmail",
       requiredEnv: [],
+      checkFn: checkGoogleCredentials,
       create: createGmailServer,
     },
     {
       name: "google-calendar",
       path: "/google-calendar",
       requiredEnv: [],
+      checkFn: checkGoogleCredentials,
       create: createCalendarServer,
     },
     {
       name: "google-drive",
       path: "/google-drive",
       requiredEnv: [],
+      checkFn: checkGoogleCredentials,
       create: createDriveServer,
     },
     {
       name: "google-docs",
       path: "/google-docs",
       requiredEnv: [],
+      checkFn: checkGoogleCredentials,
       create: createDocsServer,
     },
     {
       name: "google-sheets",
       path: "/google-sheets",
       requiredEnv: [],
+      checkFn: checkGoogleCredentials,
       create: createSheetsServer,
     },
     {
       name: "google-chat",
       path: "/google-chat",
       requiredEnv: [],
+      checkFn: checkGoogleCredentials,
       create: createChatServer,
     },
     {
@@ -145,11 +168,22 @@ async function main() {
   const skippedServers: string[] = [];
 
   for (const cfg of serverConfigs) {
+    // Check required env vars
     if (!checkEnvVars(cfg.requiredEnv)) {
       const missing = cfg.requiredEnv.filter((v) => !process.env[v]);
       console.log(`[gateway] Skipping ${cfg.name} - missing: ${missing.join(", ")}`);
       skippedServers.push(cfg.name);
       continue;
+    }
+
+    // Check custom function if provided
+    if (cfg.checkFn) {
+      const check = cfg.checkFn();
+      if (!check.ok) {
+        console.log(`[gateway] Skipping ${cfg.name} - missing: ${check.missing}`);
+        skippedServers.push(cfg.name);
+        continue;
+      }
     }
 
     try {
