@@ -13,8 +13,11 @@
     "@modelcontextprotocol/sdk": "^1.12.1",
     "@openrouter/sdk": "^0.3.16",
     "cors": "^2.8.6",
+    "discord.js": "^14.14.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.0",
+    "googleapis": "^140.0.1",
+    "mime-types": "^2.1.35",
     "pdf-parse": "^2.4.5",
     "telegraf": "^4.16.0",
     "zod": "^4.3.5"

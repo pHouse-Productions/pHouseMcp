@@ -9,8 +9,10 @@
  * Environment variables:
  *   OPENROUTER_API_KEY - Required for image-gen
  *   TELEGRAM_BOT_TOKEN - Required for telegram
+ *   DISCORD_BOT_TOKEN - Required for discord
  *   FINNHUB_API_KEY - Required for finnhub
  *   GOOGLE_PLACES_API_KEY - Required for google-places
+ *   Google servers require credentials in ~/.config/phouse/ or via env vars
  *   (cron and pdf have no requirements)
  */
 import { createGatewayServer } from "./lib/http-transport.js";
@@ -20,6 +22,13 @@ import { createServer as createCronServer } from "./servers/cron.js";
 import { createServer as createFinnhubServer } from "./servers/finnhub.js";
 import { createServer as createGooglePlacesServer } from "./servers/google-places.js";
 import { createServer as createPdfServer } from "./servers/pdf.js";
+import { createServer as createGmailServer } from "./servers/gmail.js";
+import { createServer as createCalendarServer } from "./servers/google-calendar.js";
+import { createServer as createDriveServer } from "./servers/google-drive.js";
+import { createServer as createDocsServer } from "./servers/google-docs.js";
+import { createServer as createSheetsServer } from "./servers/google-sheets.js";
+import { createServer as createChatServer } from "./servers/google-chat.js";
+import { createServer as createDiscordServer } from "./servers/discord.js";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
@@ -87,6 +96,48 @@ async function main() {
       path: "/pdf",
       requiredEnv: [],
       create: createPdfServer,
+    },
+    {
+      name: "gmail",
+      path: "/gmail",
+      requiredEnv: [],
+      create: createGmailServer,
+    },
+    {
+      name: "google-calendar",
+      path: "/google-calendar",
+      requiredEnv: [],
+      create: createCalendarServer,
+    },
+    {
+      name: "google-drive",
+      path: "/google-drive",
+      requiredEnv: [],
+      create: createDriveServer,
+    },
+    {
+      name: "google-docs",
+      path: "/google-docs",
+      requiredEnv: [],
+      create: createDocsServer,
+    },
+    {
+      name: "google-sheets",
+      path: "/google-sheets",
+      requiredEnv: [],
+      create: createSheetsServer,
+    },
+    {
+      name: "google-chat",
+      path: "/google-chat",
+      requiredEnv: [],
+      create: createChatServer,
+    },
+    {
+      name: "discord",
+      path: "/discord",
+      requiredEnv: ["DISCORD_BOT_TOKEN"],
+      create: createDiscordServer,
     },
   ];
 
