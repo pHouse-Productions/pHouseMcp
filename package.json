@@ -1,26 +1,28 @@
 {
-  "name": "phousemcp",
-  "version": "1.0.0",
-  "description": "Modular MCP servers with shared packages",
-  "private": true,
+  "name": "phouse-mcp",
+  "version": "2.0.0",
+  "description": "MCP servers for Claude",
   "type": "module",
-  "workspaces": [
-    "packages/*",
-    "servers/*"
-  ],
+  "main": "dist/gateway.js",
   "scripts": {
-    "build:packages": "npm run build -w packages/common -w packages/google-auth -w packages/http-transport --if-present",
-    "build:servers": "npm run build --workspaces --if-present",
-    "build": "npm run build:packages && npm run build:servers",
-    "clean": "rm -rf packages/*/dist servers/*/dist",
-    "http:start": "node scripts/run-http-servers.js",
-    "http:test": "bash scripts/test-http-servers.sh",
-    "http:switch": "bash scripts/switch-to-http.sh",
-    "http:revert": "bash scripts/switch-to-stdio.sh"
+    "build": "tsc",
+    "start": "node dist/gateway.js",
+    "dev": "npx tsx src/gateway.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@openrouter/sdk": "^0.3.16",
+    "cors": "^2.8.6",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.0",
+    "telegraf": "^4.16.0",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
-    "@types/mime-types": "^3.0.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.0",
     "@types/node": "^22.19.7",
+    "tsx": "^4.0.0",
     "typescript": "^5.9.3"
   }
 }
