@@ -8,7 +8,6 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Telegraf } from "telegraf";
-import { getRecentMessages, saveMessage } from "./telegram-history.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -73,24 +72,6 @@ export async function createServer(options: CreateServerOptions = {}): Promise<S
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
-      {
-        name: "get_history",
-        description: "Get the last N messages from a Telegram conversation",
-        inputSchema: {
-          type: "object" as const,
-          properties: {
-            chat_id: {
-              type: "number",
-              description: "The Telegram chat ID",
-            },
-            n: {
-              type: "number",
-              description: "Number of recent messages to retrieve (default: 10)",
-            },
-          },
-          required: ["chat_id"],
-        },
-      },
       {
         name: "send_typing",
         description: "Show typing indicator in a Telegram chat. Call this before doing work that takes time.",
@@ -213,22 +194,6 @@ export async function createServer(options: CreateServerOptions = {}): Promise<S
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    if (name === "get_history") {
-      const { chat_id, n = 10 } = args as { chat_id: number; n?: number };
-
-      const messages = getRecentMessages(chat_id, n);
-
-      if (messages.length === 0) {
-        return {
-          content: [{ type: "text", text: "No conversation history found" }],
-        };
-      }
-
-      return {
-        content: [{ type: "text", text: JSON.stringify(messages, null, 2) }],
-      };
-    }
-
     if (name === "send_typing") {
       const { chat_id } = args as { chat_id: number };
 
@@ -259,11 +224,6 @@ export async function createServer(options: CreateServerOptions = {}): Promise<S
           }
         }
 
-        saveMessage(chat_id, {
-          role: "assistant",
-          text: text,
-          timestamp: new Date().toISOString(),
-        });
         return { content: [] };
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : String(error);

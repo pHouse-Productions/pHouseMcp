@@ -7,19 +7,19 @@
  *   node dist/gateway.js --port 3000
  *
  * Environment variables:
- *   MCP_PUBLIC_URL - Public URL for OAuth and image serving
  *   OPENROUTER_API_KEY - Required for image-gen
  *   TELEGRAM_BOT_TOKEN - Required for telegram
  *   FINNHUB_API_KEY - Required for finnhub
  *   GOOGLE_PLACES_API_KEY - Required for google-places
- *   (cron has no requirements)
+ *   (cron and pdf have no requirements)
  */
 import { createGatewayServer } from "./lib/http-transport.js";
-import { createServer as createImageGenServer, getImage } from "./servers/image-gen.js";
+import { createServer as createImageGenServer } from "./servers/image-gen.js";
 import { createServer as createTelegramServer } from "./servers/telegram.js";
 import { createServer as createCronServer } from "./servers/cron.js";
 import { createServer as createFinnhubServer } from "./servers/finnhub.js";
 import { createServer as createGooglePlacesServer } from "./servers/google-places.js";
+import { createServer as createPdfServer } from "./servers/pdf.js";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
@@ -38,8 +38,7 @@ interface ServerConfig {
   name: string;
   path: string;
   requiredEnv: string[];
-  create: (options?: any) => Promise<any>;
-  setupCallback?: (gateway: any, publicUrl: string) => void;
+  create: () => Promise<any>;
 }
 
 function checkEnvVars(vars: string[]): boolean {
@@ -47,10 +46,7 @@ function checkEnvVars(vars: string[]): boolean {
 }
 
 async function main() {
-  const publicUrl = process.env.MCP_PUBLIC_URL || `http://127.0.0.1:${port}`;
-
   console.log(`[gateway] Starting MCP Gateway on port ${port}...`);
-  console.log(`[gateway] Public URL: ${publicUrl}`);
 
   // Create the gateway
   const gateway = await createGatewayServer({ port });
@@ -60,20 +56,7 @@ async function main() {
       name: "image-gen",
       path: "/image-gen",
       requiredEnv: ["OPENROUTER_API_KEY"],
-      create: () => createImageGenServer({ publicBaseUrl: publicUrl, httpMode: true }),
-      setupCallback: (gw, url) => {
-        gw.app.get("/images/:id", (req: any, res: any) => {
-          const image = getImage(req.params.id);
-          if (!image) {
-            res.status(404).send("Image not found or expired");
-            return;
-          }
-          res.setHeader("Content-Type", image.mimeType);
-          res.setHeader("Cache-Control", "public, max-age=3600");
-          res.send(image.data);
-        });
-        console.log(`[gateway] Image serving at ${url}/images/:id`);
-      },
+      create: createImageGenServer,
     },
     {
       name: "telegram",
@@ -99,6 +82,12 @@ async function main() {
       requiredEnv: ["GOOGLE_PLACES_API_KEY"],
       create: createGooglePlacesServer,
     },
+    {
+      name: "pdf",
+      path: "/pdf",
+      requiredEnv: [],
+      create: createPdfServer,
+    },
   ];
 
   const loadedServers: string[] = [];
@@ -116,10 +105,6 @@ async function main() {
       const server = await cfg.create();
       gateway.mount(cfg.path, server, cfg.name);
       loadedServers.push(cfg.name);
-
-      if (cfg.setupCallback) {
-        cfg.setupCallback(gateway, publicUrl);
-      }
     } catch (error) {
       console.error(`[gateway] Failed to load ${cfg.name}:`, (error as Error).message);
       skippedServers.push(cfg.name);
@@ -142,7 +127,7 @@ async function main() {
   console.log(`[gateway] Endpoints:`);
   for (const name of loadedServers) {
     const cfg = serverConfigs.find((c) => c.name === name);
-    if (cfg) console.log(`[gateway]   - ${publicUrl}${cfg.path}/mcp`);
+    if (cfg) console.log(`[gateway]   - http://127.0.0.1:${port}${cfg.path}/mcp`);
   }
 }
 

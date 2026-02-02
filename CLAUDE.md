@@ -47,7 +47,9 @@ Each server is mounted at its own path:
 - `/cron/mcp` - Scheduled tasks (no token needed)
 - `/finnhub/mcp` - Stock data (requires FINNHUB_API_KEY)
 - `/google-places/mcp` - Places search (requires GOOGLE_PLACES_API_KEY)
-- `/images/:id` - Serves generated images
+- `/pdf/mcp` - PDF to markdown/images (no token needed)
+- `/images/:id` - Serves generated images (image-gen)
+- `/pdf-images/:id` - Serves PDF page images
 
 Servers without their required tokens are automatically skipped.
 
@@ -58,12 +60,18 @@ src/
   gateway.ts           # Main entry point
   lib/
     http-transport.ts  # HTTP/OAuth transport layer
+    artifacts.ts       # Disk-based file storage
   servers/
     image-gen.ts       # Image generation server
     telegram.ts        # Telegram bot server
     cron.ts            # Cron/scheduling server
     finnhub.ts         # Stock data server
     google-places.ts   # Places API server
+    pdf.ts             # PDF to markdown/images
+
+artifacts/             # Generated files (gitignored)
+  image-gen/           # Generated images
+  pdf/                 # PDF page images
 ```
 
 ## Adding a New Server

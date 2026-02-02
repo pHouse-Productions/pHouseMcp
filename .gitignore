@@ -29,3 +29,6 @@ notes/
 # Credentials
 credentials/
 data/
+
+# Generated artifacts
+artifacts/

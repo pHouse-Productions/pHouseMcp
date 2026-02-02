@@ -11,47 +11,15 @@ import { OpenRouter } from "@openrouter/sdk/sdk/index.js";
 import { readFile } from "fs/promises";
 import { mkdir, writeFile } from "fs/promises";
 import { dirname } from "path";
-import { randomUUID } from "crypto";
+import { storeArtifactWithPath } from "../lib/artifacts.js";
+
+const TOOL_NAME = "image-gen";
 
 // Model configuration
 const MODEL_FLASH = "google/gemini-2.5-flash-image";
 const MODEL_PRO = "google/gemini-3-pro-image-preview";
 
 const getGeminiModel = (usePro: boolean) => (usePro ? MODEL_PRO : MODEL_FLASH);
-
-// In-memory image store for HTTP mode (images expire after 1 hour)
-const imageStore = new Map<string, { data: Buffer; mimeType: string; expiresAt: number }>();
-const IMAGE_TTL_MS = 60 * 60 * 1000; // 1 hour
-
-export function storeImage(imageData: Buffer, mimeType: string = "image/png"): string {
-  const id = randomUUID();
-  imageStore.set(id, {
-    data: imageData,
-    mimeType,
-    expiresAt: Date.now() + IMAGE_TTL_MS,
-  });
-  return id;
-}
-
-export function getImage(id: string): { data: Buffer; mimeType: string } | null {
-  const image = imageStore.get(id);
-  if (!image) return null;
-  if (Date.now() > image.expiresAt) {
-    imageStore.delete(id);
-    return null;
-  }
-  return { data: image.data, mimeType: image.mimeType };
-}
-
-// Clean up expired images periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, image] of imageStore) {
-    if (now > image.expiresAt) {
-      imageStore.delete(id);
-    }
-  }
-}, 5 * 60 * 1000);
 
 // Utility to decode base64 images
 function decodeBase64Image(base64Data: string): Buffer {
@@ -73,18 +41,10 @@ async function saveBase64Image(base64Data: string, outputPath: string): Promise<
   await writeFile(outputPath, imageBytes);
 }
 
-export interface CreateServerOptions {
-  /** Public base URL for image serving (e.g., https://example.com) */
-  publicBaseUrl?: string;
-  /** Whether running in HTTP mode (enables URL-based image returns) */
-  httpMode?: boolean;
-}
-
 /**
  * Create and configure the image-gen MCP server.
  */
-export async function createServer(options: CreateServerOptions = {}): Promise<Server> {
-  const { publicBaseUrl, httpMode = false } = options;
+export async function createServer(): Promise<Server> {
 
   // Validate API key
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -104,7 +64,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<S
       {
         name: "generate_image",
         description:
-          "Generate an image using Gemini via OpenRouter. Returns a URL to the image (in HTTP mode) or saves to file.",
+          "Generate an image using Gemini via OpenRouter. Returns the absolute path to the saved image.",
         inputSchema: {
           type: "object" as const,
           properties: {
@@ -114,7 +74,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<S
             },
             outputPath: {
               type: "string",
-              description: "Path where the image should be saved. Optional in HTTP mode (returns URL instead).",
+              description: "Optional path where the image should be saved. If not provided, saves to artifacts directory.",
             },
             aspectRatio: {
               type: "string",
@@ -151,7 +111,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<S
             },
             outputPath: {
               type: "string",
-              description: "Path where the edited image should be saved. Optional in HTTP mode.",
+              description: "Optional path where the edited image should be saved. If not provided, saves to artifacts directory.",
             },
             aspectRatio: {
               type: "string",
@@ -204,33 +164,20 @@ export async function createServer(options: CreateServerOptions = {}): Promise<S
           throw new Error("No image returned from generation request");
         }
 
-        // HTTP mode without outputPath - store and return URL
-        if (httpMode && !outputPath && publicBaseUrl) {
-          const imageBuffer = decodeBase64Image(base64ImageResponse);
-          const imageId = storeImage(imageBuffer);
-          const imageUrl = `${publicBaseUrl}/images/${imageId}`;
+        const imageBuffer = decodeBase64Image(base64ImageResponse);
+        let savedPath: string;
 
-          return {
-            content: [{
-              type: "text",
-              text: `Generated image: ${imageUrl}\nModel: ${model}\nAspect Ratio: ${aspectRatio || "1:1"}\nImage Size: ${imageSize || "1K"}`,
-            }],
-          };
+        if (outputPath) {
+          await saveBase64Image(base64ImageResponse, outputPath);
+          savedPath = outputPath;
+        } else {
+          savedPath = storeArtifactWithPath(TOOL_NAME, imageBuffer, "png");
         }
 
-        // File mode
-        if (!outputPath) {
-          return {
-            content: [{ type: "text", text: "outputPath is required when not in HTTP mode" }],
-            isError: true,
-          };
-        }
-
-        await saveBase64Image(base64ImageResponse, outputPath);
         return {
           content: [{
             type: "text",
-            text: `Generated image saved to: ${outputPath}\nModel: ${model}\nAspect Ratio: ${aspectRatio || "1:1"}\nImage Size: ${imageSize || "1K"}`,
+            text: `Generated image: ${savedPath}\nModel: ${model}\nAspect Ratio: ${aspectRatio || "1:1"}\nImage Size: ${imageSize || "1K"}`,
           }],
         };
       } catch (error) {
@@ -289,33 +236,20 @@ export async function createServer(options: CreateServerOptions = {}): Promise<S
           throw new Error("No image returned from edit request");
         }
 
-        // HTTP mode without outputPath - store and return URL
-        if (httpMode && !outputPath && publicBaseUrl) {
-          const outputBuffer = decodeBase64Image(base64ImageResponse);
-          const imageId = storeImage(outputBuffer);
-          const imageUrl = `${publicBaseUrl}/images/${imageId}`;
+        const outputBuffer = decodeBase64Image(base64ImageResponse);
+        let savedPath: string;
 
-          return {
-            content: [{
-              type: "text",
-              text: `Edited image: ${imageUrl}\nModel: ${model}\nAspect Ratio: ${aspectRatio || "1:1"}\nImage Size: ${imageSize || "1K"}`,
-            }],
-          };
+        if (outputPath) {
+          await saveBase64Image(base64ImageResponse, outputPath);
+          savedPath = outputPath;
+        } else {
+          savedPath = storeArtifactWithPath(TOOL_NAME, outputBuffer, "png");
         }
 
-        // File mode
-        if (!outputPath) {
-          return {
-            content: [{ type: "text", text: "outputPath is required when not in HTTP mode" }],
-            isError: true,
-          };
-        }
-
-        await saveBase64Image(base64ImageResponse, outputPath);
         return {
           content: [{
             type: "text",
-            text: `Edited image saved to: ${outputPath}\nModel: ${model}\nAspect Ratio: ${aspectRatio || "1:1"}\nImage Size: ${imageSize || "1K"}`,
+            text: `Edited image: ${savedPath}\nModel: ${model}\nAspect Ratio: ${aspectRatio || "1:1"}\nImage Size: ${imageSize || "1K"}`,
           }],
         };
       } catch (error) {
