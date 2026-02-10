@@ -15,6 +15,10 @@ import { storeArtifactWithPath } from "../lib/artifacts.js";
 
 const TOOL_NAME = "image-gen";
 
+// Timeout configuration
+const API_TIMEOUT_MS = 120_000; // 2 minutes for image generation/editing API calls
+const FETCH_TIMEOUT_MS = 30_000; // 30 seconds for fetching input images
+
 // Model configuration
 const MODEL_FLASH = "google/gemini-2.5-flash-image";
 const MODEL_PRO = "google/gemini-3-pro-image-preview";
@@ -157,7 +161,7 @@ export async function createServer(): Promise<Server> {
             aspect_ratio: aspectRatio || "1:1",
             image_size: imageSize || "1K",
           },
-        });
+        }, { timeoutMs: API_TIMEOUT_MS });
 
         const base64ImageResponse = result.choices[0]?.message.images?.[0]?.imageUrl?.url;
         if (!base64ImageResponse) {
@@ -204,7 +208,7 @@ export async function createServer(): Promise<Server> {
         // Load input image (support URLs)
         let imageBuffer: Buffer;
         if (inputImage.startsWith("http://") || inputImage.startsWith("https://")) {
-          const response = await fetch(inputImage);
+          const response = await fetch(inputImage, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
           if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
           imageBuffer = Buffer.from(await response.arrayBuffer());
         } else {
@@ -229,7 +233,7 @@ export async function createServer(): Promise<Server> {
             aspect_ratio: aspectRatio || "1:1",
             image_size: imageSize || "1K",
           },
-        });
+        }, { timeoutMs: API_TIMEOUT_MS });
 
         const base64ImageResponse = result.choices[0]?.message.images?.[0]?.imageUrl?.url;
         if (!base64ImageResponse) {

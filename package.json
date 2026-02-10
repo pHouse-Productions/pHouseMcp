@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/gateway.js",
-    "dev": "npx tsx src/gateway.ts"
+    "dev": "npx tsx src/gateway.ts",
+    "serve": "tsc && node dist/gateway.js --port 3948"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
